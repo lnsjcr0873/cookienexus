@@ -45,6 +45,9 @@ export class CookieNexusHub {
   }
 
   public async start(): Promise<void> {
+    if (config.enableProber) {
+      await this.prober.initAllProbes();
+    }
     return new Promise((resolve) => {
       this.server.listen(config.port, config.host, () => {
         console.log(`[CookieNexus Hub] Server running at http://${config.host}:${config.port}`);

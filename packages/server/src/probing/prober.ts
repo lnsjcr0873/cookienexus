@@ -69,8 +69,9 @@ export class ProbingEngine {
       const response = await this.performHttpRequest(probe, cookieHeader);
       const latency = Date.now() - startTime;
       
-      const isStatusValid = probe.assertion.expectedStatus 
-        ? response.statusCode === probe.assertion.expectedStatus 
+      const assertion = probe.assertion || {};
+      const isStatusValid = assertion.expectedStatus 
+        ? response.statusCode === assertion.expectedStatus 
         : (response.statusCode >= 200 && response.statusCode < 400);
 
       let isContentValid = true;
@@ -78,10 +79,10 @@ export class ProbingEngine {
 
       if (!isStatusValid) {
         isContentValid = false;
-        failureReason = `HTTP status expected ${probe.assertion.expectedStatus || '2xx/3xx'} but got ${response.statusCode}`;
+        failureReason = `HTTP status expected ${assertion.expectedStatus || '2xx/3xx'} but got ${response.statusCode}`;
       } else {
-        if (probe.assertion.mustContain) {
-          for (const token of probe.assertion.mustContain) {
+        if (assertion.mustContain) {
+          for (const token of assertion.mustContain) {
             if (!response.body.includes(token)) {
               isContentValid = false;
               failureReason = `Missing required content token: "${token}"`;
@@ -89,8 +90,8 @@ export class ProbingEngine {
             }
           }
         }
-        if (isContentValid && probe.assertion.denyKeywords) {
-          for (const token of probe.assertion.denyKeywords) {
+        if (isContentValid && assertion.denyKeywords) {
+          for (const token of assertion.denyKeywords) {
             if (response.body.includes(token)) {
               isContentValid = false;
               failureReason = `Response contained denied keyword: "${token}" (Session expired/login redirect)`;

@@ -187,22 +187,28 @@
         document.body.appendChild(overlay);
 
         document.getElementById('cn-accept-all')?.addEventListener('click', () => {
-          const newState = { necessary: true, analytics: true, marketing: true, functional: true };
+          const newState = {};
+          for (const key of Object.keys(this.config.categories)) {
+            newState[key] = true;
+          }
           this.saveAndClose(newState);
         });
 
         document.getElementById('cn-accept-necessary')?.addEventListener('click', () => {
-          const newState = { necessary: true, analytics: false, marketing: false, functional: false };
+          const newState = {};
+          for (const [key, cat] of Object.entries(this.config.categories)) {
+            newState[key] = !!cat.required;
+          }
           this.saveAndClose(newState);
         });
 
         document.getElementById('cn-save-custom')?.addEventListener('click', () => {
-          const newState = {
-            necessary: true,
-            analytics: !!document.getElementById('cn-cat-analytics')?.checked,
-            marketing: !!document.getElementById('cn-cat-marketing')?.checked,
-            functional: !!document.getElementById('cn-cat-functional')?.checked,
-          };
+          const newState = { necessary: true };
+          for (const key of Object.keys(this.config.categories)) {
+            if (key === 'necessary') continue;
+            const el = document.getElementById(`cn-cat-${key}`);
+            newState[key] = el ? !!el.checked : false;
+          }
           this.saveAndClose(newState);
         });
       };

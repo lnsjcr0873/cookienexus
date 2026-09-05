@@ -41,6 +41,14 @@ export async function runSDKTests(): Promise<boolean> {
     passed = false;
   }
 
+  // 4. Test SessionManager Header Injection
+  const { SessionManager } = await import('../session.js');
+  const sessionMgr = new SessionManager(client);
+  if (typeof sessionMgr.injectHeaders !== 'function' || typeof sessionMgr.injectAxios !== 'function') {
+    console.error('FAIL: SessionManager methods missing');
+    passed = false;
+  }
+
   console.log(`[TEST] TypeScript SDK Tests Finished. Result: ${passed ? 'PASSED' : 'FAILED'}`);
   return passed;
 }

@@ -57,12 +57,13 @@ export class FileStorageAdapter implements StorageAdapter {
     for (const [k, v] of this.vaults.entries()) {
       obj[k] = v;
     }
-    const tmpFile = `${this.vaultsFile}.tmp`;
-    fs.writeFileSync(tmpFile, JSON.stringify(obj, null, 2), 'utf-8');
+    const tmpFile = `${this.vaultsFile}.${Date.now()}.${Math.random().toString(36).substring(2)}.tmp`;
     try {
-      fs.renameSync(tmpFile, this.vaultsFile);
-    } catch (err) {
+      fs.writeFileSync(tmpFile, JSON.stringify(obj, null, 2), 'utf-8');
       fs.copyFileSync(tmpFile, this.vaultsFile);
+    } catch (err) {
+      console.error('[FileStorageAdapter] Failed to persist vaults:', err);
+    } finally {
       try { fs.unlinkSync(tmpFile); } catch (_) {}
     }
   }
@@ -72,12 +73,13 @@ export class FileStorageAdapter implements StorageAdapter {
     for (const [k, v] of this.probes.entries()) {
       obj[k] = v;
     }
-    const tmpFile = `${this.probesFile}.tmp`;
-    fs.writeFileSync(tmpFile, JSON.stringify(obj, null, 2), 'utf-8');
+    const tmpFile = `${this.probesFile}.${Date.now()}.${Math.random().toString(36).substring(2)}.tmp`;
     try {
-      fs.renameSync(tmpFile, this.probesFile);
-    } catch (err) {
+      fs.writeFileSync(tmpFile, JSON.stringify(obj, null, 2), 'utf-8');
       fs.copyFileSync(tmpFile, this.probesFile);
+    } catch (err) {
+      console.error('[FileStorageAdapter] Failed to persist probes:', err);
+    } finally {
       try { fs.unlinkSync(tmpFile); } catch (_) {}
     }
   }

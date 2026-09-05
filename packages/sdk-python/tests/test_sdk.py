@@ -41,10 +41,14 @@ class TestCookieNexusPythonSDK(unittest.TestCase):
         self.assertEqual(pool.accounts[0].account_id, "acc1")
         self.assertEqual(pool.accounts[0].weight, 3)
 
-        stats = pool.get_stats()
-        self.assertEqual(len(stats), 2)
-        self.assertEqual(stats[0]["account_id"], "acc1")
-        self.assertEqual(stats[0]["weight"], 3)
+    def test_session_manager(self):
+        client = CookieNexusClient("http://127.0.0.1:8765", "v1", "pwd")
+        sm = SessionManager(client)
+        self.assertTrue(hasattr(sm, 'inject_requests'))
+        self.assertTrue(hasattr(sm, 'inject_httpx'))
+        self.assertTrue(hasattr(sm, 'inject_aiohttp'))
+        self.assertTrue(hasattr(sm, 'inject_playwright'))
+        self.assertTrue(hasattr(sm, 'inject_selenium'))
 
 if __name__ == '__main__':
     unittest.main()

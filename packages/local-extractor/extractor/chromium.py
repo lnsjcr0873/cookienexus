@@ -28,26 +28,26 @@ class ChromiumExtractor:
     @staticmethod
     def get_master_key(user_data_path: str) -> Optional[bytes]:
         """
-        Extracts and decrypts AES master key from Local State (Windows DPAPI / macOS / Linux).
+        Extracts and decrypts AES master key from Local State (Windows DPAPI / macOS Keychain / Linux SecretService).
         """
-        local_state_path = os.path.join(user_data_path, "Local State")
-        if not os.path.exists(local_state_path):
-            return None
-
-        with open(local_state_path, "r", encoding="utf-8") as f:
-            local_state = json.load(f)
-
-        encrypted_key_b64 = local_state.get("os_crypt", {}).get("encrypted_key")
-        if not encrypted_key_b64:
-            return None
-
-        import base64
-        encrypted_key = base64.b64decode(encrypted_key_b64)
-        # Strip 'DPAPI' prefix (5 bytes)
-        encrypted_key = encrypted_key[5:]
-
         if sys.platform == "win32":
+            local_state_path = os.path.join(user_data_path, "Local State")
+            if not os.path.exists(local_state_path):
+                return None
+
             try:
+                with open(local_state_path, "r", encoding="utf-8") as f:
+                    local_state = json.load(f)
+
+                encrypted_key_b64 = local_state.get("os_crypt", {}).get("encrypted_key")
+                if not encrypted_key_b64:
+                    return None
+
+                import base64
+                encrypted_key = base64.b64decode(encrypted_key_b64)
+                # Strip 'DPAPI' prefix (5 bytes)
+                encrypted_key = encrypted_key[5:]
+
                 import ctypes
                 import ctypes.wintypes
 
@@ -62,7 +62,27 @@ class ChromiumExtractor:
                     key = ctypes.string_at(p_data_out.pbData, p_data_out.cbData)
                     ctypes.windll.kernel32.LocalFree(p_data_out.pbData)
                     return key
-            except Exception as e:
+            except Exception:
+                return None
+        elif sys.platform == "darwin":
+            try:
+                import subprocess
+                import hashlib
+                service = "Chrome Safe Storage" if "Chrome" in user_data_path else "Microsoft Edge Safe Storage"
+                cmd = ["security", "find-generic-password", "-w", "-s", service]
+                res = subprocess.run(cmd, capture_output=True, text=True)
+                if res.returncode == 0:
+                    mac_pwd = res.stdout.strip().encode('utf-8')
+                    # macOS Chrome uses PBKDF2-SHA1, 1003 iterations, 16 bytes key
+                    return hashlib.pbkdf2_hmac('sha1', mac_pwd, b'saltysalt', 1003, dklen=16)
+            except Exception:
+                return None
+        else:
+            # Linux SecretService / Peanuts fallback
+            try:
+                import hashlib
+                return hashlib.pbkdf2_hmac('sha1', b'peanuts', b'saltysalt', 1, dklen=16)
+            except Exception:
                 return None
         return None
 
@@ -112,6 +132,17 @@ class ChromiumExtractor:
                             except ImportError:
                                 from crypto_helper import decrypt_aes_gcm
                             val = decrypt_aes_gcm(master_key, iv, payload)
+                        except Exception:
+                            val = "[ENCRYPTED_VALUE]"
+                    elif master_key and len(master_key) == 16:
+                        # macOS / Linux AES-128-CBC legacy cookies
+                        try:
+                            raw_ct = enc_val[3:] if enc_val.startswith(b'v10') or enc_val.startswith(b'v11') else enc_val
+                            try:
+                                from .crypto_helper import decrypt_aes_cbc
+                            except ImportError:
+                                from crypto_helper import decrypt_aes_cbc
+                            val = decrypt_aes_cbc(master_key, b' ' * 16, raw_ct)
                         except Exception:
                             val = "[ENCRYPTED_VALUE]"
                     elif sys.platform == "win32" and not (enc_val.startswith(b'v10') or enc_val.startswith(b'v11')):

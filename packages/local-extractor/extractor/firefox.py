@@ -19,8 +19,17 @@ class FirefoxExtractor:
         if not os.path.exists(base):
             return None
 
-        # Look for *.default-release or *.default
+        # Priority 1: *.default-release or *.default containing cookies.sqlite
         matches = glob.glob(os.path.join(base, "*default*"))
+        for m in matches:
+            if os.path.exists(os.path.join(m, "cookies.sqlite")):
+                return m
+
+        # Priority 2: Any profile folder containing cookies.sqlite
+        for root, dirs, files in os.walk(base):
+            if "cookies.sqlite" in files:
+                return root
+
         return matches[0] if matches else None
 
     @staticmethod

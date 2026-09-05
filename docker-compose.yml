@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  cookienexus-hub:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cookienexus-hub
+    restart: unless-stopped
+    ports:
+      - "8765:8765"
+    environment:
+      - PORT=8765
+      - HOST=0.0.0.0
+      - CORS_ORIGIN=*
+      - ENABLE_PROBER=true
+      - LOG_LEVEL=info
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8765/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

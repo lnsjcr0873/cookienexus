@@ -1,0 +1,19 @@
+{
+  "name": "@cookienexus/sdk-ts",
+  "version": "1.0.0",
+  "description": "CookieNexus TypeScript / JavaScript Client SDK",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "node dist/tests/sdk.test.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.12",
+    "typescript": "^5.5.4"
+  }
+}

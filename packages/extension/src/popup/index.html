@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CookieNexus Console</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="header">
+    <div class="logo-title">
+      <span class="icon">🍪</span>
+      <span class="title">CookieNexus</span>
+    </div>
+    <div class="tab-buttons">
+      <button id="tab-cookies-btn" class="active">Cookies</button>
+      <button id="tab-sync-btn">E2EE Sync</button>
+      <button id="tab-export-btn">Export/Import</button>
+    </div>
+  </div>
+
+  <!-- TAB 1: COOKIE INSPECTION & EDIT -->
+  <div id="tab-cookies" class="tab-content active">
+    <div class="toolbar">
+      <input type="text" id="search-input" placeholder="Filter by name or domain...">
+      <button id="refresh-btn" class="btn btn-secondary">🔄</button>
+      <button id="add-cookie-btn" class="btn btn-primary">+ Add</button>
+    </div>
+    <div class="domain-badge" id="current-domain-text">Domain: loading...</div>
+    <div class="cookie-list" id="cookie-list-container">
+      <!-- Dynamic Cookie Items -->
+    </div>
+  </div>
+
+  <!-- TAB 2: ZERO KNOWLEDGE SYNC -->
+  <div id="tab-sync" class="tab-content">
+    <div class="sync-form">
+      <label>Central Hub WS URL:</label>
+      <input type="text" id="hub-url" value="ws://localhost:8765/ws/sync">
+
+      <label>Vault ID (Workspace):</label>
+      <input type="text" id="vault-id" value="default_vault">
+
+      <label>E2EE Master Password:</label>
+      <input type="password" id="master-password" placeholder="Zero-Knowledge Decryption Password">
+
+      <div class="toggle-row">
+        <span>Enable Live Sync</span>
+        <input type="checkbox" id="sync-toggle">
+      </div>
+
+      <button id="save-sync-btn" class="btn btn-primary btn-block">Save & Connect</button>
+      <button id="manual-sync-btn" class="btn btn-secondary btn-block">Push Sync Now</button>
+      <div id="sync-status" class="status-msg"></div>
+    </div>
+  </div>
+
+  <!-- TAB 3: EXPORT & IMPORT -->
+  <div id="tab-export" class="tab-content">
+    <div class="export-box">
+      <div class="format-buttons">
+        <button id="exp-json" class="btn btn-sm">JSON</button>
+        <button id="exp-netscape" class="btn btn-sm">Netscape (cURL)</button>
+        <button id="exp-header" class="btn btn-sm">Header</button>
+        <button id="exp-playwright" class="btn btn-sm">Playwright</button>
+      </div>
+      <textarea id="export-textarea" placeholder="Exported data or paste here to import..."></textarea>
+      <div class="export-actions">
+        <button id="copy-export-btn" class="btn btn-primary">📋 Copy</button>
+        <button id="import-btn" class="btn btn-secondary">📥 Import</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cookienexus"
+version = "1.0.0"
+description = "Universal Python SDK for CookieNexus Zero-Knowledge Session & Cookie Hub"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "cryptography>=41.0.0",
+    "requests>=2.28.0",
+]
+
+[project.optional-dependencies]
+playwright = ["playwright>=1.30.0"]
+httpx = ["httpx>=0.24.0"]

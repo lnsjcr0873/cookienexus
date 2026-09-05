@@ -1,0 +1,26 @@
+{
+  "name": "cookienexus-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CookieNexus - Enterprise-grade Zero-Knowledge Cookie & Session Management Platform",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build:server": "npm --workspace=@cookienexus/server run build",
+    "test:server": "npm --workspace=@cookienexus/server run test",
+    "build:sdk-ts": "npm --workspace=@cookienexus/sdk-ts run build",
+    "test:all": "python scripts/verify_all.py"
+  },
+  "keywords": [
+    "cookies",
+    "session-management",
+    "e2ee",
+    "crdt",
+    "privacy",
+    "consent",
+    "crawler"
+  ],
+  "author": "CookieNexus Team",
+  "license": "Apache-2.0"
+}

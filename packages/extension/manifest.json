@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "CookieNexus - Session & Cookie Hub",
+  "version": "1.0.0",
+  "description": "Zero-knowledge E2EE cookie management, live inspection, rule interceptor, and real-time multi-device sync.",
+  "permissions": [
+    "cookies",
+    "storage",
+    "declarativeNetRequest",
+    "tabs",
+    "activeTab",
+    "notifications",
+    "alarms"
+  ],
+  "host_permissions": [
+    "*://*/*"
+  ],
+  "background": {
+    "service_worker": "src/background/service_worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_title": "CookieNexus Console"
+  },
+  "options_ui": {
+    "page": "src/options/options.html",
+    "open_in_tab": true
+  },
+  "icons": {
+    "16": "src/icons/icon16.png",
+    "48": "src/icons/icon48.png",
+    "128": "src/icons/icon128.png"
+  }
+}

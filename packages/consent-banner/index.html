@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CookieNexus Consent Engine Showcase</title>
+  <link rel="stylesheet" href="cookie-consent.css">
+  <style>
+    body {
+      background: #090d16;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 40px;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .card {
+      background: #1e293b;
+      padding: 24px;
+      border-radius: 10px;
+      border: 1px solid #334155;
+      margin-top: 20px;
+    }
+    .log-box {
+      background: #000;
+      color: #38bdf8;
+      font-family: monospace;
+      padding: 12px;
+      border-radius: 6px;
+      margin-top: 10px;
+      height: 120px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🛡️ CookieNexus Web Consent Engine Demo</h1>
+    <p>Zero-dependency, Google Consent Mode v2 ready, script-blocking sandbox.</p>
+
+    <div class="card">
+      <h3>Script Execution Status</h3>
+      <p>Tracking scripts below are sandboxed as <code>type="text/plain"</code> until user grants consent.</p>
+      <div id="log-output" class="log-box">
+        [Status] Waiting for user consent choice...<br>
+      </div>
+      <button onclick="localStorage.removeItem('cookienexus_consent_state'); location.reload();" class="cn-btn cn-btn-secondary" style="margin-top: 12px;">Reset Consent Choice</button>
+    </div>
+  </div>
+
+  <!-- Sandboxed Analytics Script (Blocked by default) -->
+  <script type="text/plain" data-cookie-category="analytics">
+    const log = document.getElementById('log-output');
+    log.innerHTML += '<span style="color: #4ade80;">[Analytics Activated] Google Analytics / Matomo tracker initialized!</span><br>';
+  </script>
+
+  <!-- Sandboxed Marketing Script (Blocked by default) -->
+  <script type="text/plain" data-cookie-category="marketing">
+    const log = document.getElementById('log-output');
+    log.innerHTML += '<span style="color: #f59e0b;">[Marketing Activated] Meta Pixel / Ad Conversion tags loaded!</span><br>';
+  </script>
+
+  <script src="cookie-consent.js"></script>
+  <script>
+    new CookieNexusConsent({
+      onConsent: (state) => {
+        console.log('User consented to state:', state);
+      }
+    });
+  </script>
+</body>
+</html>

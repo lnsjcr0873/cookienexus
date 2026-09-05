@@ -1,0 +1,118 @@
+#!/usr/bin/env python3
+"""
+CookieNexus Unified Command Line Interface (cookienexus-cli)
+Manage vaults, run local extractions, query session probes, and launch the Hub.
+"""
+
+import sys
+import os
+import argparse
+import json
+import urllib.request
+import urllib.error
+
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, os.path.join(ROOT_DIR, 'packages', 'sdk-python'))
+sys.path.insert(0, os.path.join(ROOT_DIR, 'packages', 'local-extractor'))
+
+from cookienexus.client import CookieNexusClient
+from extractor.chromium import ChromiumExtractor
+from extractor.firefox import FirefoxExtractor
+
+def cmd_extract(args):
+    print(f"[*] Extracting cookies from {args.browser.capitalize()} (Domain: {args.domain or 'ALL'})...")
+    if args.browser in ("chrome", "edge"):
+        cookies = ChromiumExtractor.extract_cookies(browser=args.browser, domain_filter=args.domain)
+    else:
+        cookies = FirefoxExtractor.extract_cookies(domain_filter=args.domain)
+
+    print(f"[+] Successfully extracted {len(cookies)} cookies.")
+    if args.out:
+        with open(args.out, "w", encoding="utf-8") as f:
+            json.dump(cookies, f, indent=2)
+        print(f"[+] Saved output to {args.out}")
+    else:
+        print(json.dumps(cookies[:5], indent=2))
+        if len(cookies) > 5:
+            print(f"... and {len(cookies) - 5} more cookies.")
+
+def cmd_push(args):
+    print(f"[*] Reading cookies from {args.file}...")
+    with open(args.file, "r", encoding="utf-8") as f:
+        cookies = json.load(f)
+
+    print(f"[*] Encrypting and pushing {len(cookies)} cookies to vault '{args.vault}' at {args.hub}...")
+    client = CookieNexusClient(hub_url=args.hub, vault_id=args.vault, password=args.password)
+    client.push_cookies(cookies)
+    print(f"[+] Successfully pushed encrypted vault to Hub!")
+
+def cmd_pull(args):
+    print(f"[*] Fetching encrypted vault '{args.vault}' from {args.hub}...")
+    client = CookieNexusClient(hub_url=args.hub, vault_id=args.vault, password=args.password)
+    cookies = client.get_cookies(domain_filter=args.domain)
+    print(f"[+] Decrypted {len(cookies)} cookies.")
+    if args.format == "header":
+        print("[+] HTTP Cookie Header:")
+        print("; ".join(f"{c['name']}={c['value']}" for c in cookies))
+    elif args.format == "playwright":
+        pw = client.get_playwright_storage_state(args.domain)
+        print(json.dumps(pw, indent=2))
+    else:
+        print(json.dumps(cookies, indent=2))
+
+def cmd_probe(args):
+    url = f"{args.hub.rstrip('/')}/api/v1/probes"
+    try:
+        with urllib.request.urlopen(url, timeout=5) as resp:
+            probes = json.loads(resp.read().decode('utf-8'))
+        print(f"[*] Active Session Probes ({len(probes)}):")
+        for p in probes:
+            status = p.get('lastStatus', 'UNKNOWN')
+            status_icon = "🟢" if status == "HEALTHY" else "🔴" if status == "EXPIRED" else "🟡"
+            print(f"  {status_icon} [{p['probeId']}] Domain: {p['domain']} | Status: {status} | Latency: {p.get('lastLatencyMs', 0)}ms")
+    except Exception as e:
+        print(f"[-] Failed to fetch probes from Hub: {e}")
+
+def main():
+    parser = argparse.ArgumentParser(prog="cookienexus", description="CookieNexus Enterprise CLI")
+    subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
+
+    # extract
+    p_extract = subparsers.add_parser("extract", help="Extract cookies from local browsers")
+    p_extract.add_argument("--browser", choices=["chrome", "edge", "firefox"], default="chrome")
+    p_extract.add_argument("--domain", help="Filter domain pattern")
+    p_extract.add_argument("--out", help="Output JSON file path")
+    p_extract.set_defaults(func=cmd_extract)
+
+    # push
+    p_push = subparsers.add_parser("push", help="Encrypt and push cookies to cloud Hub")
+    p_push.add_argument("--hub", default="http://localhost:8765", help="CookieNexus Hub URL")
+    p_push.add_argument("--vault", required=True, help="Target Vault ID")
+    p_push.add_argument("--password", required=True, help="E2EE Master Password")
+    p_push.add_argument("--file", required=True, help="Input JSON cookie file")
+    p_push.set_defaults(func=cmd_push)
+
+    # pull
+    p_pull = subparsers.add_parser("pull", help="Pull and decrypt cookies from cloud Hub")
+    p_pull.add_argument("--hub", default="http://localhost:8765", help="CookieNexus Hub URL")
+    p_pull.add_argument("--vault", required=True, help="Target Vault ID")
+    p_pull.add_argument("--password", required=True, help="E2EE Master Password")
+    p_pull.add_argument("--domain", help="Filter domain")
+    p_pull.add_argument("--format", choices=["json", "header", "playwright"], default="json")
+    p_pull.set_defaults(func=cmd_pull)
+
+    # probe
+    p_probe = subparsers.add_parser("probe", help="Query session probe health status")
+    p_probe.add_argument("--hub", default="http://localhost:8765", help="CookieNexus Hub URL")
+    p_probe.set_defaults(func=cmd_probe)
+
+    args = parser.parse_args()
+    if not hasattr(args, "func"):
+        parser.print_help()
+        return 1
+
+    args.func(args)
+    return 0
+
+if __name__ == '__main__':
+    sys.exit(main())

@@ -1,0 +1,31 @@
+# Node dependencies & build artifacts
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+build/
+develop-eggs/
+eggs/
+parts/
+var/
+sdist/
+wheels/
+.pytest_cache/
+
+# Local data & temp test stores
+temp_test_data/
+data/
+*.tmp
+*.log
+repomix-output.xml
+
+# IDE / System files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

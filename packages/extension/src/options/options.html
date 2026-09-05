@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CookieNexus Settings & Rule Interceptor</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>⚙️ CookieNexus Advanced Preferences</h1>
+      <p>Configure automated domain interception rules, auto-clean schedules, and custom headers.</p>
+    </div>
+
+    <div class="card">
+      <h2>🛡️ Rule Interceptor & Header Rewrite Engine</h2>
+      <p class="desc">Define declarative rules to automatically modify SameSite, Secure, or inject headers upon domain match.</p>
+      
+      <table class="rules-table" id="rules-table">
+        <thead>
+          <tr>
+            <th>Domain Pattern</th>
+            <th>Target Cookie</th>
+            <th>Force SameSite</th>
+            <th>Force Secure</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="rules-body">
+          <!-- Populated dynamically -->
+        </tbody>
+      </table>
+
+      <button id="add-rule-btn" class="btn btn-secondary">+ Add New Rule</button>
+    </div>
+
+    <div class="card">
+      <h2>🧹 Auto-Cleanup & Whitelist Policy</h2>
+      <p class="desc">Specify domains to preserve when closing tabs or browser restarts.</p>
+      <textarea id="whitelist-input" rows="4" placeholder="example.com&#10;*.github.com&#10;google.com"></textarea>
+    </div>
+
+    <div class="actions-row">
+      <button id="save-options-btn" class="btn btn-primary">Save All Preferences</button>
+      <span id="save-status" class="status-msg"></span>
+    </div>
+  </div>
+
+  <script type="module" src="options.js"></script>
+</body>
+</html>

@@ -119,11 +119,60 @@ chrome.cookies.onChanged.addListener(async (changeInfo) => {
     return; // Prevent echo/loop when applying remote changes
   }
 
+  // 1. Rule Interceptor enforcement
+  const c = changeInfo.cookie;
+  if (c && !changeInfo.removed) {
+    chrome.storage.local.get(['interceptorRules'], async (res) => {
+      const rules = res.interceptorRules || [];
+      if (!rules.length) return;
+
+      for (const rule of rules) {
+        if (!rule.domain) continue;
+        const ruleDom = rule.domain.toLowerCase().replace(/^\*\./, '');
+        const cDom = (c.domain || '').toLowerCase().replace(/^\./, '');
+        const matchesDomain = (cDom === ruleDom || cDom.endsWith('.' + ruleDom));
+        const matchesName = (!rule.cookieName || rule.cookieName === c.name);
+
+        if (matchesDomain && matchesName) {
+          let needsUpdate = false;
+          const setDetails = {
+            url: (c.secure ? 'https://' : 'http://') + cDom + (c.path || '/'),
+            name: c.name,
+            value: c.value,
+            path: c.path || '/',
+            secure: c.secure,
+            httpOnly: c.httpOnly,
+            sameSite: c.sameSite,
+            expirationDate: c.expirationDate,
+          };
+
+          if (rule.sameSite && c.sameSite !== rule.sameSite) {
+            setDetails.sameSite = rule.sameSite;
+            needsUpdate = true;
+          }
+          if (rule.secure !== undefined && c.secure !== rule.secure) {
+            setDetails.secure = !!rule.secure;
+            needsUpdate = true;
+          }
+
+          if (needsUpdate) {
+            try {
+              await chrome.cookies.set(setDetails);
+            } catch (e) {
+              console.warn('[CookieNexus Ext] Rule enforcement error:', e);
+            }
+          }
+          break;
+        }
+      }
+    });
+  }
+
   if (!currentConfig.syncEnabled || !currentConfig.password || !ws || ws.readyState !== WebSocket.OPEN) {
     return;
   }
 
-  // Throttle sync
+  // 2. Throttle sync
   scheduleFullSync();
 });
 

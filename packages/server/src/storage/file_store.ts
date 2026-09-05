@@ -95,6 +95,14 @@ export class FileStorageAdapter implements StorageAdapter {
     return Array.from(this.vaults.keys());
   }
 
+  async deleteVault(vaultId: string): Promise<boolean> {
+    const deleted = this.vaults.delete(vaultId);
+    if (deleted) {
+      this.persistVaults();
+    }
+    return deleted;
+  }
+
   async saveProbe(probe: ProbeDefinition): Promise<void> {
     this.probes.set(probe.probeId, probe);
     this.persistProbes();

@@ -4,6 +4,7 @@ export interface StorageAdapter {
   getVault(vaultId: string): Promise<EncryptedVaultEnvelope | null>;
   saveVault(envelope: EncryptedVaultEnvelope): Promise<void>;
   listVaults(): Promise<string[]>;
+  deleteVault(vaultId: string): Promise<boolean>;
   saveProbe(probe: ProbeDefinition): Promise<void>;
   getProbe(probeId: string): Promise<ProbeDefinition | null>;
   listProbes(): Promise<ProbeDefinition[]>;
@@ -24,6 +25,10 @@ export class MemoryStorageAdapter implements StorageAdapter {
 
   async listVaults(): Promise<string[]> {
     return Array.from(this.vaults.keys());
+  }
+
+  async deleteVault(vaultId: string): Promise<boolean> {
+    return this.vaults.delete(vaultId);
   }
 
   async saveProbe(probe: ProbeDefinition): Promise<void> {

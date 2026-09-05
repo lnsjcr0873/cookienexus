@@ -84,6 +84,18 @@ export class CookieNexusHub {
     const method = req.method || 'GET';
 
     try {
+      // RBAC Auth validation if header present
+      const authHeader = req.headers.authorization;
+      let authenticatedUser = null;
+      if (authHeader) {
+        authenticatedUser = this.rbac.authenticate(authHeader);
+        if (!authenticatedUser) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Unauthorized: Invalid Bearer Token' }));
+          return;
+        }
+      }
+
       // 1. Health check & System info
       if (pathname === '/health' || pathname === '/api/v1/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -98,7 +110,15 @@ export class CookieNexusHub {
         return;
       }
 
-      // 3. Vault Sync REST endpoints (Zero-Knowledge)
+      // 3. List Vaults
+      if (pathname === '/api/v1/vaults' && method === 'GET') {
+        const vaults = await this.storage.listVaults();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(vaults));
+        return;
+      }
+
+      // 4. Vault Sync REST endpoints (Zero-Knowledge)
       if (pathname.startsWith('/api/v1/vault/')) {
         const vaultId = pathname.replace('/api/v1/vault/', '').trim();
         
@@ -130,7 +150,7 @@ export class CookieNexusHub {
 
           this.audit.log({
             action: 'REST_VAULT_UPDATE',
-            userId: body.deviceId || 'rest_client',
+            userId: body.deviceId || authenticatedUser?.userId || 'rest_client',
             vaultId,
             ip: req.socket.remoteAddress || 'unknown',
             status: 'SUCCESS',
@@ -141,9 +161,29 @@ export class CookieNexusHub {
           res.end(JSON.stringify({ success: true, vaultId, updatedAt: body.updatedAt }));
           return;
         }
+
+        if (method === 'DELETE') {
+          const deleted = await this.storage.deleteVault(vaultId);
+          if (!deleted) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Vault not found' }));
+            return;
+          }
+          this.audit.log({
+            action: 'REST_VAULT_DELETE',
+            userId: authenticatedUser?.userId || 'rest_client',
+            vaultId,
+            ip: req.socket.remoteAddress || 'unknown',
+            status: 'SUCCESS',
+            details: `Vault ${vaultId} deleted`,
+          });
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, vaultId }));
+          return;
+        }
       }
 
-      // 4. Probing endpoints
+      // 5. Probing endpoints
       if (pathname === '/api/v1/probes' && method === 'GET') {
         const probes = await this.storage.listProbes();
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -177,7 +217,21 @@ export class CookieNexusHub {
         return;
       }
 
-      // 5. Audit Log endpoint
+      if (pathname.startsWith('/api/v1/probes/') && method === 'DELETE') {
+        const probeId = pathname.replace('/api/v1/probes/', '');
+        this.prober.unregisterProbe(probeId);
+        const deleted = await this.storage.deleteProbe(probeId);
+        if (!deleted) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Probe not found' }));
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, probeId }));
+        return;
+      }
+
+      // 6. Audit Log endpoint
       if (pathname === '/api/v1/audit/logs' && method === 'GET') {
         const logs = this.audit.getRecentLogs(100);
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -239,13 +293,20 @@ export class CookieNexusHub {
         '/api/v1/health': {
           get: { summary: 'System Health Check' },
         },
+        '/api/v1/vaults': {
+          get: { summary: 'List all active Vault IDs' },
+        },
         '/api/v1/vault/{vaultId}': {
           get: { summary: 'Get Encrypted Vault Envelope' },
           post: { summary: 'Upsert Encrypted Vault Envelope' },
+          delete: { summary: 'Delete Encrypted Vault Envelope' },
         },
         '/api/v1/probes': {
           get: { summary: 'List all registered session probes' },
           post: { summary: 'Register or update a session health probe' },
+        },
+        '/api/v1/probes/{probeId}': {
+          delete: { summary: 'Delete a registered session probe' },
         },
         '/api/v1/probes/check/{probeId}': {
           post: { summary: 'Trigger an immediate session probe check' },

@@ -88,3 +88,39 @@ class CookieNexusClient:
                 "sameSite": same_site_val,
             })
         return {"cookies": playwright_cookies, "origins": []}
+
+    def list_vaults(self) -> List[str]:
+        """
+        Lists all active vault IDs on the central Hub.
+        """
+        url = f"{self.hub_url}/api/v1/vaults"
+        req = urllib.request.Request(url)
+        req.add_header('Accept', 'application/json')
+        if self.api_token:
+            req.add_header('Authorization', f'Bearer {self.api_token}')
+
+        try:
+            with urllib.request.urlopen(req, timeout=10) as response:
+                return json.loads(response.read().decode('utf-8'))
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return []
+            raise RuntimeError(f"Failed to list vaults: HTTP {e.code}")
+
+    def delete_vault(self, vault_id: Optional[str] = None) -> bool:
+        """
+        Deletes a vault from the central Hub.
+        """
+        target_vault = vault_id or self.vault_id
+        url = f"{self.hub_url}/api/v1/vault/{urllib.parse.quote(target_vault)}"
+        req = urllib.request.Request(url, method='DELETE')
+        if self.api_token:
+            req.add_header('Authorization', f'Bearer {self.api_token}')
+
+        try:
+            with urllib.request.urlopen(req, timeout=10) as response:
+                return response.status in (200, 204)
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return False
+            raise RuntimeError(f"Failed to delete vault: HTTP {e.code}")

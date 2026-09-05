@@ -84,6 +84,26 @@ export class CookieNexusClient {
     };
   }
 
+  /**
+   * Lists all vault IDs stored on the central Hub.
+   */
+  async listVaults(): Promise<string[]> {
+    const hubBase = this.options.hubUrl.replace(/\/+$/, '');
+    const url = `${hubBase}/api/v1/vaults`;
+    const result = await this.httpGet<string[]>(url);
+    return result || [];
+  }
+
+  /**
+   * Deletes a vault from the central Hub.
+   */
+  async deleteVault(vaultIdOverride?: string): Promise<boolean> {
+    const targetVault = vaultIdOverride || this.options.vaultId;
+    const hubBase = this.options.hubUrl.replace(/\/+$/, '');
+    const url = `${hubBase}/api/v1/vault/${encodeURIComponent(targetVault)}`;
+    return this.httpDelete(url);
+  }
+
   private httpGet<T>(urlStr: string): Promise<T> {
     return new Promise((resolve, reject) => {
       const u = new URL(urlStr);
@@ -133,6 +153,27 @@ export class CookieNexusClient {
       });
       req.on('error', reject);
       req.write(payload);
+      req.end();
+    });
+  }
+
+  private httpDelete(urlStr: string): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      const u = new URL(urlStr);
+      const client = u.protocol === 'https:' ? https : http;
+      const headers: Record<string, string> = { 'Accept': 'application/json' };
+      if (this.options.apiToken) headers['Authorization'] = `Bearer ${this.options.apiToken}`;
+
+      const req = client.request(u, { method: 'DELETE', headers }, (res) => {
+        if (res.statusCode === 200 || res.statusCode === 204) {
+          resolve(true);
+        } else if (res.statusCode === 404) {
+          resolve(false);
+        } else {
+          reject(new Error(`HTTP ${res.statusCode}`));
+        }
+      });
+      req.on('error', reject);
       req.end();
     });
   }

@@ -136,6 +136,19 @@
 
     initUI() {
       if (this.consentState) return; // Already answered
+      this.openPreferences();
+    }
+
+    openPreferences() {
+      const existing = document.getElementById('cookienexus-consent-modal');
+      if (existing) existing.remove();
+
+      const state = this.consentState || {
+        necessary: true,
+        analytics: this.config.categories.analytics?.default || false,
+        marketing: this.config.categories.marketing?.default || false,
+        functional: this.config.categories.functional?.default || false,
+      };
 
       const overlay = document.createElement('div');
       overlay.id = 'cookienexus-consent-modal';
@@ -154,7 +167,7 @@
                   <div class="cn-cat-desc">${cat.desc}</div>
                 </div>
                 <label class="cn-switch">
-                  <input type="checkbox" id="cn-cat-${key}" ${cat.required ? 'checked disabled' : (cat.default ? 'checked' : '')}>
+                  <input type="checkbox" id="cn-cat-${key}" ${cat.required ? 'checked disabled' : (state[key] ? 'checked' : '')}>
                   <span class="cn-slider"></span>
                 </label>
               </div>
@@ -174,23 +187,23 @@
         document.body.appendChild(overlay);
 
         document.getElementById('cn-accept-all')?.addEventListener('click', () => {
-          const state = { necessary: true, analytics: true, marketing: true, functional: true };
-          this.saveAndClose(state);
+          const newState = { necessary: true, analytics: true, marketing: true, functional: true };
+          this.saveAndClose(newState);
         });
 
         document.getElementById('cn-accept-necessary')?.addEventListener('click', () => {
-          const state = { necessary: true, analytics: false, marketing: false, functional: false };
-          this.saveAndClose(state);
+          const newState = { necessary: true, analytics: false, marketing: false, functional: false };
+          this.saveAndClose(newState);
         });
 
         document.getElementById('cn-save-custom')?.addEventListener('click', () => {
-          const state = {
+          const newState = {
             necessary: true,
-            analytics: document.getElementById('cn-cat-analytics')?.checked || false,
-            marketing: document.getElementById('cn-cat-marketing')?.checked || false,
-            functional: document.getElementById('cn-cat-functional')?.checked || false,
+            analytics: !!document.getElementById('cn-cat-analytics')?.checked,
+            marketing: !!document.getElementById('cn-cat-marketing')?.checked,
+            functional: !!document.getElementById('cn-cat-functional')?.checked,
           };
-          this.saveAndClose(state);
+          this.saveAndClose(newState);
         });
       };
 
@@ -199,6 +212,19 @@
       } else {
         document.addEventListener('DOMContentLoaded', mount);
       }
+    }
+
+    getConsent() {
+      return this.consentState ? { ...this.consentState } : null;
+    }
+
+    resetConsent() {
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (e) {}
+      this.consentState = null;
+      this.initAutoBlocker();
+      this.openPreferences();
     }
 
     saveAndClose(state) {

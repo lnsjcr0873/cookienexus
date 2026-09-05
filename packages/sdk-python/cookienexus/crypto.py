@@ -16,19 +16,29 @@ class CryptoEngine:
         Decrypts an AES-256-GCM vault payload.
         Uses `cryptography` library if installed, otherwise uses secure Node.js stdin worker fallback.
         """
-        salt = base64.b64decode(payload['salt'])
-        iv = base64.b64decode(payload['iv'])
-        ciphertext = base64.b64decode(payload['ciphertext'])
-        tag = base64.b64decode(payload['tag'])
-        key = pbkdf2_sha256(password, salt)
+        if not payload or not isinstance(payload, dict):
+            return []
+        if not payload.get('ciphertext') or not payload.get('salt') or not payload.get('iv') or not payload.get('tag'):
+            raise ValueError("Malformed vault payload: missing ciphertext, salt, iv, or tag")
 
         try:
-            from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-            aesgcm = AESGCM(key)
-            decrypted_bytes = aesgcm.decrypt(iv, ciphertext + tag, None)
-            return json.loads(decrypted_bytes.decode('utf-8'))
-        except ImportError:
-            return CryptoEngine._decrypt_via_node_fallback(payload, password)
+            salt = base64.b64decode(payload['salt'])
+            iv = base64.b64decode(payload['iv'])
+            ciphertext = base64.b64decode(payload['ciphertext'])
+            tag = base64.b64decode(payload['tag'])
+            key = pbkdf2_sha256(password, salt)
+
+            try:
+                from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+                aesgcm = AESGCM(key)
+                decrypted_bytes = aesgcm.decrypt(iv, ciphertext + tag, None)
+                return json.loads(decrypted_bytes.decode('utf-8'))
+            except ImportError:
+                return CryptoEngine._decrypt_via_node_fallback(payload, password)
+        except Exception as e:
+            if isinstance(e, ValueError):
+                raise
+            raise ValueError(f"Decryption failed (Invalid master password or corrupted ciphertext): {e}") from e
 
     @staticmethod
     def encrypt_vault(cookies: List[Dict[str, Any]], password: str, vault_id: str, device_id: str = "py_sdk") -> Dict[str, Any]:
@@ -90,7 +100,9 @@ class CryptoEngine:
           }
         });
         """
-        result = subprocess.run(['node', '-e', script], input=input_data, capture_output=True, text=True, encoding='utf-8', check=True)
+        result = subprocess.run(['node', '-e', script], input=input_data, capture_output=True, text=True, encoding='utf-8')
+        if result.returncode != 0:
+            raise ValueError("Decryption failed (Invalid password or authentication tag mismatch)")
         return json.loads(result.stdout)
 
     @staticmethod

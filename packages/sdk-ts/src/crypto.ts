@@ -19,18 +19,25 @@ export class SDKCrypto {
   }
 
   static decryptVault(payload: EncryptedVaultPayload, password: string): any[] {
-    const salt = Buffer.from(payload.salt, 'base64');
-    const iv = Buffer.from(payload.iv, 'base64');
-    const tag = Buffer.from(payload.tag, 'base64');
-    const key = this.deriveKey(password, salt);
+    if (!payload || !payload.ciphertext || !payload.salt || !payload.iv || !payload.tag) {
+      throw new Error('Malformed vault payload: missing ciphertext, salt, iv, or tag');
+    }
+    try {
+      const salt = Buffer.from(payload.salt, 'base64');
+      const iv = Buffer.from(payload.iv, 'base64');
+      const tag = Buffer.from(payload.tag, 'base64');
+      const key = this.deriveKey(password, salt);
 
-    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-    decipher.setAuthTag(tag);
+      const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+      decipher.setAuthTag(tag);
 
-    const ciphertextBuf = Buffer.from(payload.ciphertext, 'base64');
-    const decryptedBuf = Buffer.concat([decipher.update(ciphertextBuf), decipher.final()]);
+      const ciphertextBuf = Buffer.from(payload.ciphertext, 'base64');
+      const decryptedBuf = Buffer.concat([decipher.update(ciphertextBuf), decipher.final()]);
 
-    return JSON.parse(decryptedBuf.toString('utf8'));
+      return JSON.parse(decryptedBuf.toString('utf8'));
+    } catch (e: any) {
+      throw new Error(`Decryption failed (Invalid master password or corrupted ciphertext): ${e.message}`);
+    }
   }
 
   static encryptVault(cookies: any[], password: string, vaultId: string, deviceId: string = 'ts_sdk'): EncryptedVaultPayload {

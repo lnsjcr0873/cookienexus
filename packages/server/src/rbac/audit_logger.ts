@@ -43,6 +43,8 @@ export class AuditLogger {
   }
 
   public getRecentLogs(limit: number = 50): AuditLogEntry[] {
-    return this.logs.slice(-limit);
+    const safeLimit = Math.max(0, limit);
+    if (safeLimit === 0) return [];
+    return this.logs.slice(-safeLimit);
   }
 }

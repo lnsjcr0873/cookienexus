@@ -18,6 +18,20 @@ export class RBACManager {
     this.users.set(user.token, user);
   }
 
+  public removeUser(token: string): boolean {
+    const cleanToken = token.replace(/^Bearer\s+/i, '').trim();
+    return this.users.delete(cleanToken);
+  }
+
+  public listUsers(): Omit<UserSession, 'token'>[] {
+    return Array.from(this.users.values()).map(u => ({
+      userId: u.userId,
+      username: u.username,
+      role: u.role,
+      allowedDomains: [...u.allowedDomains]
+    }));
+  }
+
   public authenticate(bearerToken: string): UserSession | null {
     const token = bearerToken.replace(/^Bearer\s+/i, '').trim();
     return this.users.get(token) || null;

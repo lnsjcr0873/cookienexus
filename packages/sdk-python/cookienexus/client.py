@@ -80,12 +80,14 @@ class CookieNexusClient:
         for c in cookies:
             raw_samesite = str(c.get("sameSite", "Lax")).capitalize()
             same_site_val = raw_samesite if raw_samesite in ("Strict", "Lax", "None") else "Lax"
+            exp = c.get("expirationDate")
+            expires_val = exp if (exp is not None and exp > 0) else -1
             playwright_cookies.append({
                 "name": c["name"],
                 "value": c["value"],
                 "domain": c["domain"],
                 "path": c.get("path", "/"),
-                "expires": c.get("expirationDate", -1),
+                "expires": expires_val,
                 "httpOnly": bool(c.get("httpOnly", False)),
                 "secure": bool(c.get("secure", False)),
                 "sameSite": same_site_val,

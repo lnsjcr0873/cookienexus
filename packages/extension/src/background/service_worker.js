@@ -11,15 +11,19 @@ let currentConfig = {
   deviceId: 'ext_' + Math.random().toString(36).substring(2, 9),
 };
 
-// Load saved config
-chrome.storage.local.get(['hubUrl', 'vaultId', 'password', 'syncEnabled', 'deviceId'], (res) => {
-  currentConfig = { ...currentConfig, ...res };
-  if (!res.deviceId) {
-    chrome.storage.local.set({ deviceId: currentConfig.deviceId });
-  }
-  if (currentConfig.syncEnabled && currentConfig.password) {
-    initWebSocket();
-  }
+let isConfigLoaded = false;
+const configPromise = new Promise((resolve) => {
+  chrome.storage.local.get(['hubUrl', 'vaultId', 'password', 'syncEnabled', 'deviceId'], (res) => {
+    currentConfig = { ...currentConfig, ...res };
+    if (!res.deviceId) {
+      chrome.storage.local.set({ deviceId: currentConfig.deviceId });
+    }
+    isConfigLoaded = true;
+    if (currentConfig.syncEnabled && currentConfig.password) {
+      initWebSocket();
+    }
+    resolve(currentConfig);
+  });
 });
 
 function initWebSocket() {
@@ -231,7 +235,14 @@ let syncTimer = null;
 function scheduleFullSync() {
   if (syncTimer) clearTimeout(syncTimer);
   syncTimer = setTimeout(async () => {
-    if (!currentConfig.syncEnabled || !currentConfig.password || !ws || ws.readyState !== WebSocket.OPEN) {
+    if (!isConfigLoaded) {
+      await configPromise;
+    }
+    if (!currentConfig.syncEnabled || !currentConfig.password) {
+      return;
+    }
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      initWebSocket();
       return;
     }
     try {

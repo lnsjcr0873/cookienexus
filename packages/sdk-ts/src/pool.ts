@@ -31,6 +31,15 @@ export class CookiePool {
     });
   }
 
+  public getAccount(accountId: string): PoolAccount | undefined {
+    return this.accounts.find(a => a.accountId === accountId);
+  }
+
+  public clear(): void {
+    this.accounts = [];
+    this.currentIndex = 0;
+  }
+
   public removeAccount(accountId: string): boolean {
     const idx = this.accounts.findIndex(a => a.accountId === accountId);
     if (idx !== -1) {

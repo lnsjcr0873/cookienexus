@@ -23,6 +23,16 @@ class CookiePool:
     def add_account(self, account_id: str, vault_id: str, domain: str, weight: int = 1) -> None:
         self.accounts.append(PoolAccount(account_id, vault_id, domain, weight))
 
+    def get_account(self, account_id: str) -> Optional[PoolAccount]:
+        for acc in self.accounts:
+            if acc.account_id == account_id:
+                return acc
+        return None
+
+    def clear(self) -> None:
+        self.accounts.clear()
+        self._current_index = 0
+
     def remove_account(self, account_id: str) -> bool:
         for idx, acc in enumerate(self.accounts):
             if acc.account_id == account_id:

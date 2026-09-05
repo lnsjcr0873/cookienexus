@@ -13,7 +13,8 @@ export class CookieCRDT {
   }
 
   public static generateKey(domain: string, name: string, path: string = '/'): string {
-    return `${domain.toLowerCase().trim()}|${name.trim()}|${path.trim()}`;
+    const cleanDomain = (domain || 'localhost').toLowerCase().trim().replace(/^\./, '');
+    return `${cleanDomain}|${(name || '').trim()}|${(path || '/').trim()}`;
   }
 
   public getVectorClock(): Record<string, number> {

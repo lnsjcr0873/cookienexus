@@ -56,11 +56,13 @@ export class SyncWebSocketServer {
         
         // Fetch current vault state from storage
         const currentEnvelope = await this.storage.getVault(ctx.vaultId);
-        ctx.ws.send(JSON.stringify({
-          type: 'SERVER_HELLO',
-          vaultId: ctx.vaultId,
-          envelope: currentEnvelope,
-        }));
+        if (ctx.ws.readyState === WebSocket.OPEN) {
+          ctx.ws.send(JSON.stringify({
+            type: 'SERVER_HELLO',
+            vaultId: ctx.vaultId,
+            envelope: currentEnvelope,
+          }));
+        }
         break;
       }
 
@@ -88,17 +90,23 @@ export class SyncWebSocketServer {
           envelope,
         });
 
-        ctx.ws.send(JSON.stringify({ type: 'SYNC_ACK', vaultId: envelope.vaultId, timestamp: Date.now() }));
+        if (ctx.ws.readyState === WebSocket.OPEN) {
+          ctx.ws.send(JSON.stringify({ type: 'SYNC_ACK', vaultId: envelope.vaultId, timestamp: Date.now() }));
+        }
         break;
       }
 
       case 'PING': {
-        ctx.ws.send(JSON.stringify({ type: 'PONG', timestamp: Date.now() }));
+        if (ctx.ws.readyState === WebSocket.OPEN) {
+          ctx.ws.send(JSON.stringify({ type: 'PONG', timestamp: Date.now() }));
+        }
         break;
       }
 
       default:
-        ctx.ws.send(JSON.stringify({ type: 'UNKNOWN_MESSAGE', received: message.type }));
+        if (ctx.ws.readyState === WebSocket.OPEN) {
+          ctx.ws.send(JSON.stringify({ type: 'UNKNOWN_MESSAGE', received: message.type }));
+        }
     }
   }
 
@@ -106,7 +114,9 @@ export class SyncWebSocketServer {
     const raw = JSON.stringify(message);
     for (const client of this.clients) {
       if (client !== sender && client.vaultId === sender.vaultId && client.ws.readyState === WebSocket.OPEN) {
-        client.ws.send(raw);
+        try {
+          client.ws.send(raw);
+        } catch (e) {}
       }
     }
   }
@@ -115,7 +125,9 @@ export class SyncWebSocketServer {
     const raw = JSON.stringify({ type: 'PROBE_ALERT', alert });
     for (const client of this.clients) {
       if (client.ws.readyState === WebSocket.OPEN) {
-        client.ws.send(raw);
+        try {
+          client.ws.send(raw);
+        } catch (e) {}
       }
     }
   }

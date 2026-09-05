@@ -128,22 +128,39 @@ export class ProbingEngine {
         headers['Cookie'] = cookieHeader;
       }
 
+      let settled = false;
       const req = client.request(parsedUrl, {
         method: probe.request.method || 'GET',
         headers,
         timeout: probe.request.timeoutMs || 5000,
       }, (res) => {
         let data = '';
-        res.on('data', chunk => { data += chunk; });
+        const MAX_BODY_BYTES = 100 * 1024; // 100 KB max for probe check
+        res.on('data', chunk => {
+          if (data.length < MAX_BODY_BYTES) {
+            data += chunk.toString().slice(0, MAX_BODY_BYTES - data.length);
+          }
+        });
         res.on('end', () => {
-          resolve({ statusCode: res.statusCode || 0, body: data });
+          if (!settled) {
+            settled = true;
+            resolve({ statusCode: res.statusCode || 0, body: data });
+          }
         });
       });
 
-      req.on('error', (err) => reject(err));
+      req.on('error', (err) => {
+        if (!settled) {
+          settled = true;
+          reject(err);
+        }
+      });
       req.on('timeout', () => {
-        req.destroy();
-        reject(new Error('Probe request timed out'));
+        if (!settled) {
+          settled = true;
+          req.destroy();
+          reject(new Error('Probe request timed out'));
+        }
       });
       req.end();
     });

@@ -94,6 +94,7 @@
     activateCategoryScripts(category) {
       const scripts = document.querySelectorAll(`script[type="text/plain"][data-cookie-category="${category}"]`);
       scripts.forEach(oldScript => {
+        if (!oldScript.parentNode) return;
         const newScript = document.createElement('script');
         Array.from(oldScript.attributes).forEach(attr => {
           if (attr.name !== 'type' && attr.name !== 'data-cookie-category') {
@@ -101,7 +102,11 @@
           }
         });
         newScript.type = 'text/javascript';
-        newScript.innerHTML = oldScript.innerHTML;
+        if (oldScript.src) {
+          newScript.src = oldScript.src;
+        } else {
+          newScript.text = oldScript.text || oldScript.innerHTML;
+        }
         oldScript.parentNode.replaceChild(newScript, oldScript);
         console.log(`[CookieNexus Consent] Activated script for category: ${category}`);
       });

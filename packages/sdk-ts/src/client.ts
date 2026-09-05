@@ -89,6 +89,10 @@ export class CookieNexusClient {
         let body = '';
         res.on('data', chunk => { body += chunk; });
         res.on('end', () => {
+          if (res.statusCode === 404) {
+            resolve(null as any);
+            return;
+          }
           if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
             try { resolve(JSON.parse(body)); } catch (e) { reject(e); }
           } else {

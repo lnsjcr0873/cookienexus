@@ -21,13 +21,15 @@ export class CookieFormats {
       '',
     ];
 
-    for (const c of cookies) {
-      const domain = c.domain.startsWith('.') ? c.domain : '.' + c.domain;
-      const flag = c.domain.startsWith('.') ? 'TRUE' : 'FALSE';
+    for (const c of (cookies || [])) {
+      if (!c || !c.name) continue;
+      const rawDomain = c.domain || 'localhost';
+      const domain = rawDomain.startsWith('.') ? rawDomain : '.' + rawDomain;
+      const flag = rawDomain.startsWith('.') ? 'TRUE' : 'FALSE';
       const path = c.path || '/';
       const secure = c.secure ? 'TRUE' : 'FALSE';
       const expiry = Math.floor(c.expirationDate || (Date.now() / 1000 + 86400 * 30));
-      lines.push(`${domain}\t${flag}\t${path}\t${secure}\t${expiry}\t${c.name}\t${c.value}`);
+      lines.push(`${domain}\t${flag}\t${path}\t${secure}\t${expiry}\t${c.name}\t${c.value || ''}`);
     }
 
     return lines.join('\n');
@@ -37,18 +39,18 @@ export class CookieFormats {
    * Export to HTTP Header format: "name1=val1; name2=val2"
    */
   static toHeader(cookies) {
-    return cookies.map(c => `${c.name}=${c.value}`).join('; ');
+    return (cookies || []).filter(c => c && c.name).map(c => `${c.name}=${c.value || ''}`).join('; ');
   }
 
   /**
    * Export to Playwright `storageState.json` format
    */
   static toPlaywright(cookies, origins = []) {
-    const playwrightCookies = cookies.map(c => ({
+    const playwrightCookies = (cookies || []).filter(c => c && c.name).map(c => ({
       name: c.name,
-      value: c.value,
-      domain: c.domain,
-      path: c.path,
+      value: c.value || '',
+      domain: c.domain || 'localhost',
+      path: c.path || '/',
       expires: c.expirationDate || -1,
       httpOnly: !!c.httpOnly,
       secure: !!c.secure,

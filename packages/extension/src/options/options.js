@@ -75,17 +75,17 @@ function saveOptions() {
   const updatedRules = [];
 
   rows.forEach(row => {
-    const domain = row.querySelector('.rule-domain').value.trim();
-    const cookieName = row.querySelector('.rule-name').value.trim();
-    const sameSite = row.querySelector('.rule-samesite').value;
-    const secure = row.querySelector('.rule-secure').checked;
+    const domain = row.querySelector('.rule-domain')?.value.trim() || '';
+    const cookieName = row.querySelector('.rule-name')?.value.trim() || '';
+    const sameSite = row.querySelector('.rule-samesite')?.value || 'None';
+    const secure = !!row.querySelector('.rule-secure')?.checked;
 
     if (domain) {
       updatedRules.push({ domain, cookieName, sameSite, secure });
     }
   });
 
-  const whitelistText = document.getElementById('whitelist-input').value;
+  const whitelistText = document.getElementById('whitelist-input')?.value || '';
   const whitelistDomains = whitelistText.split('\n').map(s => s.trim()).filter(Boolean);
 
   chrome.storage.local.set({

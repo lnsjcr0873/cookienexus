@@ -23,8 +23,8 @@ export function encryptWithPassword(plaintext: string, password: string): Encryp
   const key = deriveKeyPBKDF2(password, salt);
 
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-  let ciphertext = cipher.update(plaintext, 'utf8', 'base64');
-  ciphertext += cipher.final('base64');
+  const ciphertextBuf = Buffer.concat([cipher.update(Buffer.from(plaintext, 'utf8')), cipher.final()]);
+  const ciphertext = ciphertextBuf.toString('base64');
   const tag = cipher.getAuthTag();
 
   return {
@@ -47,9 +47,9 @@ export function decryptWithPassword(payload: EncryptedPayload, password: string)
   const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
   decipher.setAuthTag(tag);
   
-  let decrypted = decipher.update(payload.ciphertext, 'base64', 'utf8');
-  decrypted += decipher.final('utf8');
-  return decrypted;
+  const ciphertextBuf = Buffer.from(payload.ciphertext, 'base64');
+  const decryptedBuf = Buffer.concat([decipher.update(ciphertextBuf), decipher.final()]);
+  return decryptedBuf.toString('utf8');
 }
 
 /**

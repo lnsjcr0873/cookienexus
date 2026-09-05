@@ -147,28 +147,36 @@
         </div>
       `;
 
-      document.body.appendChild(overlay);
+      const mount = () => {
+        if (!document.body || document.getElementById('cookienexus-consent-modal')) return;
+        document.body.appendChild(overlay);
 
-      // Event Listeners
-      document.getElementById('cn-accept-all').addEventListener('click', () => {
-        const state = { necessary: true, analytics: true, marketing: true, functional: true };
-        this.saveAndClose(state);
-      });
+        document.getElementById('cn-accept-all')?.addEventListener('click', () => {
+          const state = { necessary: true, analytics: true, marketing: true, functional: true };
+          this.saveAndClose(state);
+        });
 
-      document.getElementById('cn-accept-necessary').addEventListener('click', () => {
-        const state = { necessary: true, analytics: false, marketing: false, functional: false };
-        this.saveAndClose(state);
-      });
+        document.getElementById('cn-accept-necessary')?.addEventListener('click', () => {
+          const state = { necessary: true, analytics: false, marketing: false, functional: false };
+          this.saveAndClose(state);
+        });
 
-      document.getElementById('cn-save-custom').addEventListener('click', () => {
-        const state = {
-          necessary: true,
-          analytics: document.getElementById('cn-cat-analytics')?.checked || false,
-          marketing: document.getElementById('cn-cat-marketing')?.checked || false,
-          functional: document.getElementById('cn-cat-functional')?.checked || false,
-        };
-        this.saveAndClose(state);
-      });
+        document.getElementById('cn-save-custom')?.addEventListener('click', () => {
+          const state = {
+            necessary: true,
+            analytics: document.getElementById('cn-cat-analytics')?.checked || false,
+            marketing: document.getElementById('cn-cat-marketing')?.checked || false,
+            functional: document.getElementById('cn-cat-functional')?.checked || false,
+          };
+          this.saveAndClose(state);
+        });
+      };
+
+      if (document.body) {
+        mount();
+      } else {
+        document.addEventListener('DOMContentLoaded', mount);
+      }
     }
 
     saveAndClose(state) {

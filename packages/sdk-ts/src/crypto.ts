@@ -27,10 +27,10 @@ export class SDKCrypto {
     const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
     decipher.setAuthTag(tag);
 
-    let decrypted = decipher.update(payload.ciphertext, 'base64', 'utf8');
-    decrypted += decipher.final('utf8');
+    const ciphertextBuf = Buffer.from(payload.ciphertext, 'base64');
+    const decryptedBuf = Buffer.concat([decipher.update(ciphertextBuf), decipher.final()]);
 
-    return JSON.parse(decrypted);
+    return JSON.parse(decryptedBuf.toString('utf8'));
   }
 
   static encryptVault(cookies: any[], password: string, vaultId: string, deviceId: string = 'ts_sdk'): EncryptedVaultPayload {
@@ -40,8 +40,8 @@ export class SDKCrypto {
 
     const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
     const jsonStr = JSON.stringify(cookies);
-    let ciphertext = cipher.update(jsonStr, 'utf8', 'base64');
-    ciphertext += cipher.final('base64');
+    const ciphertextBuf = Buffer.concat([cipher.update(Buffer.from(jsonStr, 'utf8')), cipher.final()]);
+    const ciphertext = ciphertextBuf.toString('base64');
     const tag = cipher.getAuthTag();
 
     return {

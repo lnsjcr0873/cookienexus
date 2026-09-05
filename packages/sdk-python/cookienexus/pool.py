@@ -38,13 +38,7 @@ class CookiePool:
         selected.usage_count += 1
         selected.last_used = time.time()
 
-        # Temporarily switch client vault if different
-        orig_vault = self.client.vault_id
-        self.client.vault_id = selected.vault_id
-        try:
-            cookies = self.client.get_cookies(selected.domain)
-        finally:
-            self.client.vault_id = orig_vault
+        cookies = self.client.get_cookies(selected.domain, vault_id=selected.vault_id)
 
         return {
             "account_id": selected.account_id,

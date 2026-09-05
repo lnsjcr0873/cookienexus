@@ -7,9 +7,11 @@ import { CookieRecord, CRDTCookieEntry } from '../storage/types.js';
 export class CookieCRDT {
   private state: Map<string, CRDTCookieEntry> = new Map();
   private vectorClock: Record<string, number> = {};
+  private currentLamport: number = 0;
 
   constructor(public readonly nodeId: string) {
     this.vectorClock[nodeId] = 0;
+    this.currentLamport = 0;
   }
 
   public static generateKey(domain: string, name: string, path: string = '/'): string {
@@ -23,8 +25,9 @@ export class CookieCRDT {
 
   public set(cookie: CookieRecord): CRDTCookieEntry {
     const key = CookieCRDT.generateKey(cookie.domain, cookie.name, cookie.path);
-    this.vectorClock[this.nodeId] = (this.vectorClock[this.nodeId] || 0) + 1;
-    const lamport = this.vectorClock[this.nodeId];
+    this.currentLamport++;
+    this.vectorClock[this.nodeId] = this.currentLamport;
+    const lamport = this.currentLamport;
     const now = Date.now();
 
     const entry: CRDTCookieEntry = {
@@ -44,8 +47,9 @@ export class CookieCRDT {
     const key = CookieCRDT.generateKey(domain, name, path);
     const existing = this.state.get(key);
     
-    this.vectorClock[this.nodeId] = (this.vectorClock[this.nodeId] || 0) + 1;
-    const lamport = this.vectorClock[this.nodeId];
+    this.currentLamport++;
+    this.vectorClock[this.nodeId] = this.currentLamport;
+    const lamport = this.currentLamport;
     const now = Date.now();
 
     const dummyCookie: CookieRecord = existing ? { ...existing.value, isDeleted: true } : {
@@ -129,6 +133,7 @@ export class CookieCRDT {
 
   private updateVectorClock(nodeId: string, clock: number) {
     this.vectorClock[nodeId] = Math.max(this.vectorClock[nodeId] || 0, clock);
+    this.currentLamport = Math.max(this.currentLamport, clock);
   }
 
   public getActiveCookies(): CookieRecord[] {

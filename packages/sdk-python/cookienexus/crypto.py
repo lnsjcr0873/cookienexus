@@ -79,12 +79,12 @@ class CryptoEngine:
             const salt = Buffer.from(data.salt, 'base64');
             const iv = Buffer.from(data.iv, 'base64');
             const tag = Buffer.from(data.tag, 'base64');
+            const ct = Buffer.from(data.ciphertext, 'base64');
             const key = crypto.pbkdf2Sync(data.password, salt, 100000, 32, 'sha256');
             const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
             decipher.setAuthTag(tag);
-            let dec = decipher.update(data.ciphertext, 'base64', 'utf8');
-            dec += decipher.final('utf8');
-            process.stdout.write(dec);
+            const decryptedBuf = Buffer.concat([decipher.update(ct), decipher.final()]);
+            process.stdout.write(decryptedBuf.toString('utf8'));
           } catch (e) {
             process.exit(1);
           }
@@ -113,8 +113,8 @@ class CryptoEngine:
             const iv = crypto.randomBytes(12);
             const key = crypto.pbkdf2Sync(data.password, salt, 100000, 32, 'sha256');
             const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-            let ct = cipher.update(JSON.stringify(data.cookies), 'utf8', 'base64');
-            ct += cipher.final('base64');
+            const ctBuf = Buffer.concat([cipher.update(Buffer.from(JSON.stringify(data.cookies), 'utf8')), cipher.final()]);
+            const ct = ctBuf.toString('base64');
             const tag = cipher.getAuthTag();
             const out = {
               vaultId: data.vaultId,

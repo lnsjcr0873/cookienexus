@@ -38,7 +38,9 @@ export class SyncWebSocketServer {
           const message = JSON.parse(data.toString());
           await this.handleMessage(ctx, message);
         } catch (err: any) {
-          ws.send(JSON.stringify({ type: 'ERROR', message: err.message }));
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'ERROR', message: err.message }));
+          }
         }
       });
 

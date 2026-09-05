@@ -63,16 +63,20 @@ export class CookieNexusClient {
    */
   async getPlaywrightStorageState(domain?: string, vaultIdOverride?: string): Promise<{ cookies: any[]; origins: any[] }> {
     const cookies = await this.getCookies(domain, vaultIdOverride);
-    const playwrightCookies = cookies.map((c: any) => ({
-      name: c.name,
-      value: c.value,
-      domain: c.domain,
-      path: c.path || '/',
-      expires: c.expirationDate || -1,
-      httpOnly: !!c.httpOnly,
-      secure: !!c.secure,
-      sameSite: c.sameSite === 'Strict' ? 'Strict' : c.sameSite === 'Lax' ? 'Lax' : 'None',
-    }));
+    const playwrightCookies = cookies.map((c: any) => {
+      const s = (c.sameSite || 'Lax').toLowerCase();
+      const sameSiteVal = s === 'strict' ? 'Strict' : s === 'none' ? 'None' : 'Lax';
+      return {
+        name: c.name,
+        value: c.value,
+        domain: c.domain,
+        path: c.path || '/',
+        expires: c.expirationDate || -1,
+        httpOnly: !!c.httpOnly,
+        secure: !!c.secure,
+        sameSite: sameSiteVal,
+      };
+    });
 
     return {
       cookies: playwrightCookies,

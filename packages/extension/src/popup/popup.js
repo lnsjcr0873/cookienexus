@@ -102,14 +102,16 @@ function renderCookieList(cookies) {
 
     card.querySelector('.del-btn').addEventListener('click', async () => {
       await deleteCookie(c);
-      await loadCookies(new URL(activeTabUrl).hostname);
+      if (activeTabUrl) {
+        await loadCookies(new URL(activeTabUrl).hostname);
+      }
     });
 
-    card.querySelector('.edit-btn').addEventListener('click', () => {
+    card.querySelector('.edit-btn').addEventListener('click', async () => {
       const newVal = prompt(`Edit value for ${c.name}:`, c.value);
       if (newVal !== null) {
         c.value = newVal;
-        updateCookie(c);
+        await updateCookie(c);
       }
     });
 
@@ -119,7 +121,7 @@ function renderCookieList(cookies) {
 
 async function updateCookie(c) {
   const protocol = c.secure ? 'https://' : 'http://';
-  const rawDomain = c.domain || 'localhost';
+  const rawDomain = c.domain || (activeTabUrl ? new URL(activeTabUrl).hostname : 'localhost');
   const cleanDomain = rawDomain.startsWith('.') ? rawDomain.substring(1) : rawDomain;
   const url = `${protocol}${cleanDomain}${c.path || '/'}`;
   
@@ -145,7 +147,8 @@ async function updateCookie(c) {
 
 async function deleteCookie(c) {
   const protocol = c.secure ? 'https://' : 'http://';
-  const cleanDomain = c.domain.startsWith('.') ? c.domain.substring(1) : c.domain;
+  const rawDomain = c.domain || (activeTabUrl ? new URL(activeTabUrl).hostname : 'localhost');
+  const cleanDomain = rawDomain.startsWith('.') ? rawDomain.substring(1) : rawDomain;
   const url = `${protocol}${cleanDomain}${c.path || '/'}`;
   await chrome.cookies.remove({ url, name: c.name });
 }

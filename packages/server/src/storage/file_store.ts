@@ -59,7 +59,12 @@ export class FileStorageAdapter implements StorageAdapter {
     }
     const tmpFile = `${this.vaultsFile}.tmp`;
     fs.writeFileSync(tmpFile, JSON.stringify(obj, null, 2), 'utf-8');
-    fs.renameSync(tmpFile, this.vaultsFile);
+    try {
+      fs.renameSync(tmpFile, this.vaultsFile);
+    } catch (err) {
+      fs.copyFileSync(tmpFile, this.vaultsFile);
+      try { fs.unlinkSync(tmpFile); } catch (_) {}
+    }
   }
 
   private persistProbes() {
@@ -69,7 +74,12 @@ export class FileStorageAdapter implements StorageAdapter {
     }
     const tmpFile = `${this.probesFile}.tmp`;
     fs.writeFileSync(tmpFile, JSON.stringify(obj, null, 2), 'utf-8');
-    fs.renameSync(tmpFile, this.probesFile);
+    try {
+      fs.renameSync(tmpFile, this.probesFile);
+    } catch (err) {
+      fs.copyFileSync(tmpFile, this.probesFile);
+      try { fs.unlinkSync(tmpFile); } catch (_) {}
+    }
   }
 
   async getVault(vaultId: string): Promise<EncryptedVaultEnvelope | null> {

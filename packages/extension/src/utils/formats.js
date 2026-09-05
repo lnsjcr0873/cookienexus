@@ -24,8 +24,10 @@ export class CookieFormats {
     for (const c of (cookies || [])) {
       if (!c || !c.name) continue;
       const rawDomain = c.domain || 'localhost';
-      const domain = rawDomain.startsWith('.') ? rawDomain : '.' + rawDomain;
-      const flag = rawDomain.startsWith('.') ? 'TRUE' : 'FALSE';
+      const isSubdomain = rawDomain.startsWith('.');
+      const prefix = c.httpOnly ? '#HttpOnly_' : '';
+      const domain = `${prefix}${rawDomain}`;
+      const flag = isSubdomain ? 'TRUE' : 'FALSE';
       const path = c.path || '/';
       const secure = c.secure ? 'TRUE' : 'FALSE';
       const expiry = Math.floor(c.expirationDate || (Date.now() / 1000 + 86400 * 30));
@@ -46,16 +48,20 @@ export class CookieFormats {
    * Export to Playwright `storageState.json` format
    */
   static toPlaywright(cookies, origins = []) {
-    const playwrightCookies = (cookies || []).filter(c => c && c.name).map(c => ({
-      name: c.name,
-      value: c.value || '',
-      domain: c.domain || 'localhost',
-      path: c.path || '/',
-      expires: c.expirationDate || -1,
-      httpOnly: !!c.httpOnly,
-      secure: !!c.secure,
-      sameSite: c.sameSite === 'Strict' ? 'Strict' : c.sameSite === 'Lax' ? 'Lax' : 'None',
-    }));
+    const playwrightCookies = (cookies || []).filter(c => c && c.name).map(c => {
+      const s = (c.sameSite || 'Lax').toLowerCase();
+      const sameSiteVal = s === 'strict' ? 'Strict' : s === 'none' ? 'None' : 'Lax';
+      return {
+        name: c.name,
+        value: c.value || '',
+        domain: c.domain || 'localhost',
+        path: c.path || '/',
+        expires: c.expirationDate || -1,
+        httpOnly: !!c.httpOnly,
+        secure: !!c.secure,
+        sameSite: sameSiteVal,
+      };
+    });
 
     return JSON.stringify({
       cookies: playwrightCookies,
@@ -67,25 +73,33 @@ export class CookieFormats {
    * Parse Netscape format string into CookieRecord array
    */
   static parseNetscape(text) {
-    const lines = text.split('\n');
+    const lines = (text || '').split('\n');
     const cookies = [];
 
     for (const rawLine of lines) {
-      const line = rawLine.trim();
-      if (!line || line.startsWith('#')) continue;
+      let line = rawLine.trim();
+      if (!line) continue;
+
+      let isHttpOnly = false;
+      if (line.startsWith('#HttpOnly_')) {
+        isHttpOnly = true;
+        line = line.substring('#HttpOnly_'.length);
+      } else if (line.startsWith('#')) {
+        continue;
+      }
 
       const parts = line.split('\t');
       if (parts.length >= 7) {
         cookies.push({
           domain: parts[0],
-          path: parts[2],
+          path: parts[2] || '/',
           secure: parts[3].toUpperCase() === 'TRUE',
-          expirationDate: parseInt(parts[4], 10),
+          expirationDate: parseInt(parts[4], 10) || null,
           name: parts[5],
-          value: parts[6],
-          httpOnly: false,
+          value: parts[6] || '',
+          httpOnly: isHttpOnly,
           sameSite: 'Lax',
-          session: false,
+          session: !parts[4] || parts[4] === '0',
           updatedAt: Date.now(),
         });
       }

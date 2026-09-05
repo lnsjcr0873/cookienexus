@@ -52,6 +52,7 @@ class FirefoxExtractor:
 
             results = []
             for host, name, path, val, is_secure, is_httponly, same_site, expiry in rows:
+                same_site_str = "Strict" if same_site == 2 else "Lax" if same_site == 1 else "unspecified"
                 results.append({
                     "domain": host,
                     "name": name,
@@ -59,7 +60,7 @@ class FirefoxExtractor:
                     "value": val,
                     "secure": bool(is_secure),
                     "httpOnly": bool(is_httponly),
-                    "sameSite": "Strict" if same_site == 2 else "Lax" if same_site == 1 else "None",
+                    "sameSite": same_site_str,
                     "expirationDate": expiry
                 })
             return results

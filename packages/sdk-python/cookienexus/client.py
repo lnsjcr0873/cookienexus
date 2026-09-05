@@ -12,11 +12,12 @@ class CookieNexusClient:
         self.password = password
         self.api_token = api_token
 
-    def get_cookies(self, domain_filter: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_cookies(self, domain_filter: Optional[str] = None, vault_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Fetches and decrypts all cookies from the remote zero-knowledge vault.
         """
-        url = f"{self.hub_url}/api/v1/vault/{urllib.parse.quote(self.vault_id)}"
+        target_vault = vault_id or self.vault_id
+        url = f"{self.hub_url}/api/v1/vault/{urllib.parse.quote(target_vault)}"
         req = urllib.request.Request(url)
         req.add_header('Accept', 'application/json')
         if self.api_token:
@@ -42,12 +43,13 @@ class CookieNexusClient:
                 matched.append(c)
         return matched
 
-    def push_cookies(self, cookies: List[Dict[str, Any]]) -> None:
+    def push_cookies(self, cookies: List[Dict[str, Any]], vault_id: Optional[str] = None) -> None:
         """
         Encrypts and updates the remote vault.
         """
-        url = f"{self.hub_url}/api/v1/vault/{urllib.parse.quote(self.vault_id)}"
-        payload = CryptoEngine.encrypt_vault(cookies, self.password, self.vault_id)
+        target_vault = vault_id or self.vault_id
+        url = f"{self.hub_url}/api/v1/vault/{urllib.parse.quote(target_vault)}"
+        payload = CryptoEngine.encrypt_vault(cookies, self.password, target_vault)
         raw_data = json.dumps(payload).encode('utf-8')
 
         req = urllib.request.Request(url, data=raw_data, method='POST')
@@ -59,20 +61,22 @@ class CookieNexusClient:
             if response.status not in (200, 201):
                 raise RuntimeError(f"Failed to save vault: HTTP {response.status}")
 
-    def get_cookie_header(self, domain: str) -> str:
+    def get_cookie_header(self, domain: str, vault_id: Optional[str] = None) -> str:
         """
         Returns an HTTP Cookie header string: 'name1=val1; name2=val2'
         """
-        cookies = self.get_cookies(domain)
+        cookies = self.get_cookies(domain, vault_id=vault_id)
         return "; ".join(f"{c['name']}={c['value']}" for c in cookies)
 
-    def get_playwright_storage_state(self, domain: Optional[str] = None) -> Dict[str, Any]:
+    def get_playwright_storage_state(self, domain: Optional[str] = None, vault_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Generates storageState dict for Playwright `browser.new_context(storage_state=...)`
         """
-        cookies = self.get_cookies(domain)
+        cookies = self.get_cookies(domain, vault_id=vault_id)
         playwright_cookies = []
         for c in cookies:
+            raw_samesite = str(c.get("sameSite", "Lax")).capitalize()
+            same_site_val = raw_samesite if raw_samesite in ("Strict", "Lax", "None") else "Lax"
             playwright_cookies.append({
                 "name": c["name"],
                 "value": c["value"],
@@ -81,6 +85,6 @@ class CookieNexusClient:
                 "expires": c.get("expirationDate", -1),
                 "httpOnly": bool(c.get("httpOnly", False)),
                 "secure": bool(c.get("secure", False)),
-                "sameSite": c.get("sameSite", "Lax").capitalize() if c.get("sameSite") in ("Strict", "Lax", "None") else "Lax",
+                "sameSite": same_site_val,
             })
         return {"cookies": playwright_cookies, "origins": []}

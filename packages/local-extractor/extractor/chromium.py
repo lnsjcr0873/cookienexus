@@ -102,10 +102,9 @@ class ChromiumExtractor:
 
             for host, name, path, enc_val, secure, httponly, samesite, expires_utc in rows:
                 val = ""
-                if enc_val and master_key:
-                    try:
-                        # Decode v10 AES-GCM
-                        if enc_val.startswith(b'v10') or enc_val.startswith(b'v11'):
+                if enc_val:
+                    if (enc_val.startswith(b'v10') or enc_val.startswith(b'v11')) and master_key:
+                        try:
                             iv = enc_val[3:15]
                             payload = enc_val[15:]
                             try:
@@ -113,10 +112,29 @@ class ChromiumExtractor:
                             except ImportError:
                                 from crypto_helper import decrypt_aes_gcm
                             val = decrypt_aes_gcm(master_key, iv, payload)
-                    except Exception:
-                        val = "[ENCRYPTED_VALUE]"
+                        except Exception:
+                            val = "[ENCRYPTED_VALUE]"
+                    elif sys.platform == "win32" and not (enc_val.startswith(b'v10') or enc_val.startswith(b'v11')):
+                        # Legacy Windows DPAPI direct decryption
+                        try:
+                            import ctypes
+                            import ctypes.wintypes
+                            class DATA_BLOB(ctypes.Structure):
+                                _fields_ = [("cbData", ctypes.wintypes.DWORD), ("pbData", ctypes.POINTER(ctypes.c_char))]
+                            p_data_in = DATA_BLOB(len(enc_val), ctypes.create_string_buffer(enc_val))
+                            p_data_out = DATA_BLOB()
+                            if ctypes.windll.crypt32.CryptUnprotectData(ctypes.byref(p_data_in), None, None, None, None, 0, ctypes.byref(p_data_out)):
+                                val = ctypes.string_at(p_data_out.pbData, p_data_out.cbData).decode('utf-8', errors='replace')
+                                ctypes.windll.kernel32.LocalFree(p_data_out.pbData)
+                        except Exception:
+                            val = "[ENCRYPTED_VALUE]"
+                    else:
+                        val = "[NO_KEY_OR_APP_BOUND]"
                 else:
-                    val = "[NO_KEY_OR_APP_BOUND]"
+                    val = ""
+
+                # SQLite SameSite mapping: 2 = Strict, 1 = Lax, 3 = None, 0/-1 = unspecified
+                same_site_str = "Strict" if samesite == 2 else "Lax" if samesite == 1 else "None" if samesite == 3 else "unspecified"
 
                 results.append({
                     "domain": host,
@@ -125,7 +143,7 @@ class ChromiumExtractor:
                     "value": val,
                     "secure": bool(secure),
                     "httpOnly": bool(httponly),
-                    "sameSite": "Strict" if samesite == 2 else "Lax" if samesite == 1 else "None",
+                    "sameSite": same_site_str,
                     "expirationDate": expires_utc / 1000000 - 11644473600 if expires_utc else None
                 })
             return results

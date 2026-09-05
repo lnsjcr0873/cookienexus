@@ -75,10 +75,11 @@ async function handleIncomingVault(envelope) {
     const decryptedJson = await E2EECrypto.decrypt(envelope, currentConfig.password);
     const cookies = JSON.parse(decryptedJson);
     for (const c of cookies) {
+      const cleanDomain = c.domain ? c.domain.replace(/^\./, '') : 'localhost';
+      const url = (c.secure ? 'https://' : 'http://') + cleanDomain + (c.path || '/');
+
       if (!c.isDeleted) {
         try {
-          const cleanDomain = c.domain ? c.domain.replace(/^\./, '') : 'localhost';
-          const url = (c.secure ? 'https://' : 'http://') + cleanDomain + (c.path || '/');
           const setDetails = {
             url,
             name: c.name,
@@ -94,6 +95,12 @@ async function handleIncomingVault(envelope) {
           await chrome.cookies.set(setDetails);
         } catch (setErr) {
           console.warn('[CookieNexus Ext] Skipping invalid cookie:', c.name, setErr);
+        }
+      } else {
+        try {
+          await chrome.cookies.remove({ url, name: c.name });
+        } catch (delErr) {
+          console.warn('[CookieNexus Ext] Skipping deleted cookie removal:', c.name, delErr);
         }
       }
     }
@@ -154,6 +161,9 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
     chrome.storage.local.set(currentConfig);
     if (currentConfig.syncEnabled && currentConfig.password) {
       initWebSocket();
+    } else if (ws) {
+      try { ws.close(); } catch (e) {}
+      ws = null;
     }
     sendResponse({ success: true });
   } else if (req.action === 'TRIGGER_SYNC') {

@@ -7,7 +7,7 @@ def decrypt_aes_gcm(key: bytes, iv: bytes, ciphertext_with_tag: bytes) -> str:
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
         aesgcm = AESGCM(key)
         decrypted = aesgcm.decrypt(iv, ciphertext_with_tag, None)
-        return decrypted.decode('utf-8')
+        return decrypted.decode('utf-8', errors='replace')
     except ImportError:
         # Fallback to Node.js subprocess using JSON via stdin for security & robustness
         key_b64 = base64.b64encode(key).decode('utf-8')
@@ -34,11 +34,11 @@ def decrypt_aes_gcm(key: bytes, iv: bytes, ciphertext_with_tag: bytes) -> str:
             const key = Buffer.from(data.key, 'base64');
             const iv = Buffer.from(data.iv, 'base64');
             const tag = Buffer.from(data.tag, 'base64');
+            const ct = Buffer.from(data.ciphertext, 'base64');
             const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
             decipher.setAuthTag(tag);
-            let dec = decipher.update(data.ciphertext, 'base64', 'utf8');
-            dec += decipher.final('utf8');
-            process.stdout.write(dec);
+            const decryptedBuf = Buffer.concat([decipher.update(ct), decipher.final()]);
+            process.stdout.write(decryptedBuf.toString('utf8'));
           } catch (err) {
             process.exit(1);
           }

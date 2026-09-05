@@ -19,10 +19,14 @@ export class AuditLogger {
   }
 
   public static sanitizeString(input: string): string {
-    // Mask potential tokens, passwords, cookies in log strings
-    return input.replace(/(token|password|auth|secret|session_id)=([^\s&]+)/gi, (match, key, val) => {
-      return `${key}=${AuditLogger.maskSecret(val)}`;
-    });
+    if (!input) return '';
+    return input
+      .replace(/("?(?:token|password|auth|secret|session_id|user_session|key|cookie)"?\s*[:=]\s*["']?)([^"',\s&}]+)(["']?)/gi, (match, prefix, val, suffix) => {
+        return `${prefix}${AuditLogger.maskSecret(val)}${suffix}`;
+      })
+      .replace(/(Bearer\s+)([A-Za-z0-9_\-\.]+)/gi, (match, prefix, val) => {
+        return `${prefix}${AuditLogger.maskSecret(val)}`;
+      });
   }
 
   public log(entry: Omit<AuditLogEntry, 'timestamp'>) {

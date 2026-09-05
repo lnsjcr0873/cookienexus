@@ -31,12 +31,12 @@ export class RBACManager {
     if (!lowerTarget) return false;
 
     return user.allowedDomains.some(pattern => {
-      const cleanPattern = pattern.toLowerCase().trim();
+      let cleanPattern = pattern.toLowerCase().trim();
       if (cleanPattern.startsWith('*.')) {
-        const root = cleanPattern.slice(2).replace(/^\./, '');
-        return lowerTarget === root || lowerTarget.endsWith('.' + root);
+        cleanPattern = cleanPattern.slice(2);
       }
-      return lowerTarget === cleanPattern.replace(/^\./, '');
+      cleanPattern = cleanPattern.replace(/^\./, '');
+      return lowerTarget === cleanPattern || lowerTarget.endsWith('.' + cleanPattern);
     });
   }
 

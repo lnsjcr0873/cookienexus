@@ -17,7 +17,7 @@ class CookieNexusClient:
         Fetches and decrypts all cookies from the remote zero-knowledge vault.
         """
         target_vault = vault_id or self.vault_id
-        url = f"{self.hub_url}/api/v1/vault/{urllib.parse.quote(target_vault)}"
+        url = f"{self.hub_url}/api/v1/vault/{urllib.parse.quote(target_vault, safe='')}"
         req = urllib.request.Request(url)
         req.add_header('Accept', 'application/json')
         if self.api_token:
@@ -48,7 +48,7 @@ class CookieNexusClient:
         Encrypts and updates the remote vault.
         """
         target_vault = vault_id or self.vault_id
-        url = f"{self.hub_url}/api/v1/vault/{urllib.parse.quote(target_vault)}"
+        url = f"{self.hub_url}/api/v1/vault/{urllib.parse.quote(target_vault, safe='')}"
         payload = CryptoEngine.encrypt_vault(cookies, self.password, target_vault)
         raw_data = json.dumps(payload).encode('utf-8')
 
@@ -120,7 +120,7 @@ class CookieNexusClient:
         Deletes a vault from the central Hub.
         """
         target_vault = vault_id or self.vault_id
-        url = f"{self.hub_url}/api/v1/vault/{urllib.parse.quote(target_vault)}"
+        url = f"{self.hub_url}/api/v1/vault/{urllib.parse.quote(target_vault, safe='')}"
         req = urllib.request.Request(url, method='DELETE')
         if self.api_token:
             req.add_header('Authorization', f'Bearer {self.api_token}')
@@ -171,7 +171,7 @@ class CookieNexusClient:
         """
         Deletes a session health probe from the central Hub.
         """
-        url = f"{self.hub_url}/api/v1/probes/{urllib.parse.quote(probe_id)}"
+        url = f"{self.hub_url}/api/v1/probes/{urllib.parse.quote(probe_id, safe='')}"
         req = urllib.request.Request(url, method='DELETE')
         if self.api_token:
             req.add_header('Authorization', f'Bearer {self.api_token}')
@@ -188,7 +188,7 @@ class CookieNexusClient:
         """
         Triggers an immediate execution check for a registered session probe.
         """
-        url = f"{self.hub_url}/api/v1/probes/check/{urllib.parse.quote(probe_id)}"
+        url = f"{self.hub_url}/api/v1/probes/check/{urllib.parse.quote(probe_id, safe='')}"
         req = urllib.request.Request(url, data=b"{}", method='POST')
         req.add_header('Content-Type', 'application/json')
         if self.api_token:

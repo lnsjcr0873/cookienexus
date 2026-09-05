@@ -120,7 +120,8 @@ export class CookieNexusHub {
 
       // 4. Vault Sync REST endpoints (Zero-Knowledge)
       if (pathname.startsWith('/api/v1/vault/')) {
-        const vaultId = pathname.replace('/api/v1/vault/', '').trim();
+        const rawId = pathname.replace('/api/v1/vault/', '').trim();
+        const vaultId = decodeURIComponent(rawId);
         
         if (method === 'GET') {
           const envelope = await this.storage.getVault(vaultId);
@@ -205,7 +206,8 @@ export class CookieNexusHub {
       }
 
       if (pathname.startsWith('/api/v1/probes/check/') && method === 'POST') {
-        const probeId = pathname.replace('/api/v1/probes/check/', '');
+        const rawId = pathname.replace('/api/v1/probes/check/', '');
+        const probeId = decodeURIComponent(rawId);
         const updated = await this.prober.executeCheck(probeId);
         if (!updated) {
           res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -218,7 +220,8 @@ export class CookieNexusHub {
       }
 
       if (pathname.startsWith('/api/v1/probes/') && method === 'DELETE') {
-        const probeId = pathname.replace('/api/v1/probes/', '');
+        const rawId = pathname.replace('/api/v1/probes/', '');
+        const probeId = decodeURIComponent(rawId);
         this.prober.unregisterProbe(probeId);
         const deleted = await this.storage.deleteProbe(probeId);
         if (!deleted) {

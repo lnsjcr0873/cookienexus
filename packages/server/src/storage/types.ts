@@ -47,6 +47,8 @@ export interface ProbeDefinition {
     method: 'GET' | 'POST' | 'HEAD';
     headers?: Record<string, string>;
     timeoutMs?: number;
+    followRedirects?: boolean;
+    maxRedirects?: number;
   };
   assertion: {
     expectedStatus?: number;

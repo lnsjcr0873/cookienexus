@@ -130,9 +130,10 @@ export class ProbingEngine {
     }
   }
 
-  private performHttpRequest(probe: ProbeDefinition, cookieHeader?: string): Promise<{ statusCode: number; body: string }> {
+  private performHttpRequest(probe: ProbeDefinition, cookieHeader?: string, redirectCount: number = 0, targetUrl?: string): Promise<{ statusCode: number; body: string }> {
     return new Promise((resolve, reject) => {
-      const parsedUrl = new URL(probe.request.url);
+      const urlStr = targetUrl || probe.request.url;
+      const parsedUrl = new URL(urlStr);
       const isHttps = parsedUrl.protocol === 'https:';
       const client = isHttps ? https : http;
 
@@ -141,12 +142,28 @@ export class ProbingEngine {
         headers['Cookie'] = cookieHeader;
       }
 
+      const allowRedirects = probe.request.followRedirects !== false;
+      const maxRedirs = probe.request.maxRedirects || 5;
+
       let settled = false;
       const req = client.request(parsedUrl, {
         method: probe.request.method || 'GET',
         headers,
         timeout: probe.request.timeoutMs || 5000,
       }, (res) => {
+        const statusCode = res.statusCode || 0;
+
+        // Check and follow HTTP redirects (301, 302, 303, 307, 308)
+        if (allowRedirects && [301, 302, 303, 307, 308].includes(statusCode) && res.headers.location && redirectCount < maxRedirs) {
+          const nextUrl = new URL(res.headers.location, parsedUrl).toString();
+          req.destroy();
+          settled = true;
+          this.performHttpRequest(probe, cookieHeader, redirectCount + 1, nextUrl)
+            .then(resolve)
+            .catch(reject);
+          return;
+        }
+
         let data = '';
         const MAX_BODY_BYTES = 100 * 1024; // 100 KB max for probe check
         res.on('data', chunk => {
@@ -157,7 +174,7 @@ export class ProbingEngine {
         res.on('end', () => {
           if (!settled) {
             settled = true;
-            resolve({ statusCode: res.statusCode || 0, body: data });
+            resolve({ statusCode, body: data });
           }
         });
       });

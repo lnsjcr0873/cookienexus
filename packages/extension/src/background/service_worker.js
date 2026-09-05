@@ -66,8 +66,11 @@ function initWebSocket() {
   }
 }
 
+let isSyncingIncoming = false;
+
 async function handleIncomingVault(envelope) {
   if (!currentConfig.password) return;
+  isSyncingIncoming = true;
   try {
     const decryptedJson = await E2EECrypto.decrypt(envelope, currentConfig.password);
     const cookies = JSON.parse(decryptedJson);
@@ -96,11 +99,19 @@ async function handleIncomingVault(envelope) {
     }
   } catch (err) {
     console.error('[CookieNexus Ext] Decryption of incoming vault failed:', err);
+  } finally {
+    setTimeout(() => {
+      isSyncingIncoming = false;
+    }, 500);
   }
 }
 
 // Listen to cookie changes in real-time
 chrome.cookies.onChanged.addListener(async (changeInfo) => {
+  if (isSyncingIncoming) {
+    return; // Prevent echo/loop when applying remote changes
+  }
+
   if (!currentConfig.syncEnabled || !currentConfig.password || !ws || ws.readyState !== WebSocket.OPEN) {
     return;
   }

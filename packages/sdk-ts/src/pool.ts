@@ -49,7 +49,7 @@ export class CookiePool {
     selected.usageCount++;
     selected.lastUsed = Date.now();
 
-    const cookies = await this.client.getCookies(selected.domain);
+    const cookies = await this.client.getCookies(selected.domain, selected.vaultId);
     return { account: selected, cookies };
   }
 

@@ -16,9 +16,10 @@ export class CookieNexusClient {
   /**
    * Fetches and decrypts all cookies for the configured vault.
    */
-  async getCookies(domainFilter?: string): Promise<any[]> {
+  async getCookies(domainFilter?: string, vaultIdOverride?: string): Promise<any[]> {
+    const targetVault = vaultIdOverride || this.options.vaultId;
     const hubBase = this.options.hubUrl.replace(/\/+$/, '');
-    const url = `${hubBase}/api/v1/vault/${encodeURIComponent(this.options.vaultId)}`;
+    const url = `${hubBase}/api/v1/vault/${encodeURIComponent(targetVault)}`;
 
     const envelope = await this.httpGet<EncryptedVaultPayload>(url);
     if (!envelope || !envelope.ciphertext) {
@@ -40,27 +41,28 @@ export class CookieNexusClient {
   /**
    * Encrypts and pushes a new cookie set to the central Hub.
    */
-  async pushCookies(cookies: any[]): Promise<void> {
+  async pushCookies(cookies: any[], vaultIdOverride?: string): Promise<void> {
+    const targetVault = vaultIdOverride || this.options.vaultId;
     const hubBase = this.options.hubUrl.replace(/\/+$/, '');
-    const url = `${hubBase}/api/v1/vault/${encodeURIComponent(this.options.vaultId)}`;
+    const url = `${hubBase}/api/v1/vault/${encodeURIComponent(targetVault)}`;
 
-    const payload = SDKCrypto.encryptVault(cookies, this.options.password, this.options.vaultId);
+    const payload = SDKCrypto.encryptVault(cookies, this.options.password, targetVault);
     await this.httpPost(url, payload);
   }
 
   /**
    * Generates a Cookie Header string (e.g. "session_id=xyz; token=abc")
    */
-  async getCookieHeader(domain: string): Promise<string> {
-    const cookies = await this.getCookies(domain);
+  async getCookieHeader(domain: string, vaultIdOverride?: string): Promise<string> {
+    const cookies = await this.getCookies(domain, vaultIdOverride);
     return cookies.map((c: any) => `${c.name}=${c.value}`).join('; ');
   }
 
   /**
    * Generates Playwright storageState JSON object for direct browser context initialization.
    */
-  async getPlaywrightStorageState(domain?: string): Promise<{ cookies: any[]; origins: any[] }> {
-    const cookies = await this.getCookies(domain);
+  async getPlaywrightStorageState(domain?: string, vaultIdOverride?: string): Promise<{ cookies: any[]; origins: any[] }> {
+    const cookies = await this.getCookies(domain, vaultIdOverride);
     const playwrightCookies = cookies.map((c: any) => ({
       name: c.name,
       value: c.value,

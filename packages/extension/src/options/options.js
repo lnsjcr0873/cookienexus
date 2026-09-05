@@ -15,11 +15,28 @@ function init() {
   });
 
   document.getElementById('add-rule-btn').addEventListener('click', () => {
+    collectCurrentRules();
     rules.push({ domain: '', cookieName: '', sameSite: 'None', secure: true });
     renderRules();
   });
 
   document.getElementById('save-options-btn').addEventListener('click', saveOptions);
+}
+
+function collectCurrentRules() {
+  const tbody = document.getElementById('rules-body');
+  if (!tbody) return;
+  const rows = tbody.querySelectorAll('tr');
+  if (rows.length === 0) return;
+  const updated = [];
+  rows.forEach(row => {
+    const domain = row.querySelector('.rule-domain')?.value.trim() || '';
+    const cookieName = row.querySelector('.rule-name')?.value.trim() || '';
+    const sameSite = row.querySelector('.rule-samesite')?.value || 'None';
+    const secure = !!row.querySelector('.rule-secure')?.checked;
+    updated.push({ domain, cookieName, sameSite, secure });
+  });
+  rules = updated;
 }
 
 function renderRules() {
@@ -43,6 +60,7 @@ function renderRules() {
     `;
 
     tr.querySelector('.btn-del').addEventListener('click', (e) => {
+      collectCurrentRules();
       rules.splice(idx, 1);
       renderRules();
     });

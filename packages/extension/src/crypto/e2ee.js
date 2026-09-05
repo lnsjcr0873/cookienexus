@@ -75,9 +75,11 @@ export class E2EECrypto {
   }
 
   static toBase64(uint8) {
+    const CHUNK_SIZE = 0x8000; // 32KB chunking
     let binary = '';
-    for (let i = 0; i < uint8.length; i++) {
-      binary += String.fromCharCode(uint8[i]);
+    for (let i = 0; i < uint8.length; i += CHUNK_SIZE) {
+      const chunk = uint8.subarray(i, i + CHUNK_SIZE);
+      binary += String.fromCharCode.apply(null, chunk);
     }
     return btoa(binary);
   }

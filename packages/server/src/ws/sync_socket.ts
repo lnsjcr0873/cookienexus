@@ -121,6 +121,20 @@ export class SyncWebSocketServer {
     }
   }
 
+  public broadcastVaultUpdate(envelope: EncryptedVaultEnvelope) {
+    const raw = JSON.stringify({
+      type: 'SYNC_BROADCAST',
+      envelope,
+    });
+    for (const client of this.clients) {
+      if (client.vaultId === envelope.vaultId && client.ws.readyState === WebSocket.OPEN) {
+        try {
+          client.ws.send(raw);
+        } catch (e) {}
+      }
+    }
+  }
+
   public notifyProbeAlert(alert: any) {
     const raw = JSON.stringify({ type: 'PROBE_ALERT', alert });
     for (const client of this.clients) {

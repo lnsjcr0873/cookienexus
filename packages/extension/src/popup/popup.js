@@ -16,12 +16,19 @@ document.querySelectorAll('.tab-buttons button').forEach(btn => {
 });
 
 async function init() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (tab && tab.url) {
-    activeTabUrl = tab.url;
-    const urlObj = new URL(tab.url);
-    document.getElementById('current-domain-text').textContent = `Domain: ${urlObj.hostname}`;
-    await loadCookies(urlObj.hostname);
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab && tab.url && (tab.url.startsWith('http://') || tab.url.startsWith('https://'))) {
+      activeTabUrl = tab.url;
+      const urlObj = new URL(tab.url);
+      document.getElementById('current-domain-text').textContent = `Domain: ${urlObj.hostname}`;
+      await loadCookies(urlObj.hostname);
+    } else {
+      document.getElementById('current-domain-text').textContent = 'Domain: (No active web page)';
+      document.getElementById('cookie-list-container').innerHTML = '<div style="color: #64748b; text-align: center; margin-top: 20px;">Open a website to view and manage its cookies.</div>';
+    }
+  } catch (e) {
+    document.getElementById('current-domain-text').textContent = 'Domain: (Unknown)';
   }
 
   // Load sync config
@@ -30,6 +37,29 @@ async function init() {
     if (res.vaultId) document.getElementById('vault-id').value = res.vaultId;
     if (res.password) document.getElementById('master-password').value = res.password;
     if (res.syncEnabled !== undefined) document.getElementById('sync-toggle').checked = res.syncEnabled;
+  });
+
+  // Attach Add Cookie Handler
+  document.getElementById('add-cookie-btn')?.addEventListener('click', () => {
+    if (!activeTabUrl) {
+      alert('Please navigate to a valid web page first.');
+      return;
+    }
+    const urlObj = new URL(activeTabUrl);
+    const name = prompt('Enter Cookie Name:');
+    if (!name || !name.trim()) return;
+    const value = prompt(`Enter Cookie Value for "${name}":`, '');
+    if (value === null) return;
+
+    updateCookie({
+      name: name.trim(),
+      value: value.trim(),
+      domain: urlObj.hostname,
+      path: '/',
+      secure: urlObj.protocol === 'https:',
+      httpOnly: false,
+      sameSite: 'Lax',
+    });
   });
 }
 
@@ -89,19 +119,28 @@ function renderCookieList(cookies) {
 
 async function updateCookie(c) {
   const protocol = c.secure ? 'https://' : 'http://';
-  const cleanDomain = c.domain.startsWith('.') ? c.domain.substring(1) : c.domain;
+  const rawDomain = c.domain || 'localhost';
+  const cleanDomain = rawDomain.startsWith('.') ? rawDomain.substring(1) : rawDomain;
   const url = `${protocol}${cleanDomain}${c.path || '/'}`;
-  await chrome.cookies.set({
+  
+  const setDetails = {
     url,
     name: c.name,
     value: c.value,
-    domain: c.domain,
     path: c.path || '/',
-    secure: c.secure,
-    httpOnly: c.httpOnly,
+    secure: !!c.secure,
+    httpOnly: !!c.httpOnly,
     expirationDate: c.expirationDate,
-  });
-  await loadCookies(new URL(activeTabUrl).hostname);
+  };
+
+  if (rawDomain.startsWith('.')) {
+    setDetails.domain = rawDomain;
+  }
+
+  await chrome.cookies.set(setDetails);
+  if (activeTabUrl) {
+    await loadCookies(new URL(activeTabUrl).hostname);
+  }
 }
 
 async function deleteCookie(c) {

@@ -1,6 +1,7 @@
 import json
 import urllib.request
 import urllib.error
+import urllib.parse
 from typing import List, Dict, Any, Optional
 from .crypto import CryptoEngine
 

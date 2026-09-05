@@ -26,7 +26,8 @@ class CookiePool:
             raise ValueError("No accounts available in pool")
 
         if strategy == "random":
-            selected = random.choice(self.accounts)
+            weights = [max(a.weight, 1) for a in self.accounts]
+            selected = random.choices(self.accounts, weights=weights, k=1)[0]
         elif strategy == "least_used":
             selected = min(self.accounts, key=lambda a: a.usage_count)
         else:
@@ -52,3 +53,13 @@ class CookiePool:
             "cookies": cookies,
             "cookie_header": "; ".join(f"{c['name']}={c['value']}" for c in cookies)
         }
+
+    def get_stats(self) -> List[Dict[str, Any]]:
+        return [{
+            "account_id": a.account_id,
+            "vault_id": a.vault_id,
+            "domain": a.domain,
+            "weight": a.weight,
+            "usage_count": a.usage_count,
+            "last_used": a.last_used
+        } for a in self.accounts]

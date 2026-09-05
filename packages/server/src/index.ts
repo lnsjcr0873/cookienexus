@@ -121,6 +121,9 @@ export class CookieNexusHub {
           body.updatedAt = Date.now();
           await this.storage.saveVault(body);
 
+          // Broadcast real-time update to connected WebSocket clients
+          this.wsServer.broadcastVaultUpdate(body);
+
           this.audit.log({
             action: 'REST_VAULT_UPDATE',
             userId: body.deviceId || 'rest_client',
@@ -182,20 +185,38 @@ export class CookieNexusHub {
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Endpoint not found', path: pathname }));
     } catch (err: any) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Internal Server Error', message: err.message }));
+      const code = err.statusCode || 500;
+      res.writeHead(code, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: code === 400 ? 'Bad Request' : 'Internal Server Error', message: err.message }));
     }
   }
 
   private readJsonBody<T>(req: http.IncomingMessage): Promise<T> {
     return new Promise((resolve, reject) => {
       let body = '';
-      req.on('data', chunk => { body += chunk; });
+      const MAX_PAYLOAD_BYTES = 10 * 1024 * 1024; // 10 MB limit
+      let exceeded = false;
+
+      req.on('data', chunk => {
+        if (exceeded) return;
+        body += chunk;
+        if (body.length > MAX_PAYLOAD_BYTES) {
+          exceeded = true;
+          req.destroy();
+          const err: any = new Error('Payload Too Large (Max 10MB)');
+          err.statusCode = 413;
+          reject(err);
+        }
+      });
+
       req.on('end', () => {
+        if (exceeded) return;
         try {
           resolve(body ? JSON.parse(body) : {});
         } catch (e) {
-          reject(new Error('Malformed JSON payload'));
+          const err: any = new Error('Malformed JSON payload');
+          err.statusCode = 400;
+          reject(err);
         }
       });
       req.on('error', reject);

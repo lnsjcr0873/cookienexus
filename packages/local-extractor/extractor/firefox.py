@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Optional
 
 class FirefoxExtractor:
     @staticmethod
-    def get_firefox_profile_path() -> Optional[str]:
+    def get_firefox_profile_path(profile_name: Optional[str] = None) -> Optional[str]:
         if sys.platform == "win32":
             base = os.path.join(os.environ.get("APPDATA", ""), "Mozilla", "Firefox", "Profiles")
         elif sys.platform == "darwin":
@@ -18,6 +18,14 @@ class FirefoxExtractor:
 
         if not os.path.exists(base):
             return None
+
+        if profile_name:
+            named_path = os.path.join(base, profile_name)
+            if os.path.exists(named_path):
+                return named_path
+            matches = glob.glob(os.path.join(base, f"*{profile_name}*"))
+            if matches:
+                return matches[0]
 
         # Priority 1: *.default-release or *.default containing cookies.sqlite
         matches = glob.glob(os.path.join(base, "*default*"))
@@ -33,8 +41,8 @@ class FirefoxExtractor:
         return matches[0] if matches else None
 
     @staticmethod
-    def extract_cookies(domain_filter: Optional[str] = None) -> List[Dict[str, Any]]:
-        profile_path = FirefoxExtractor.get_firefox_profile_path()
+    def extract_cookies(profile: Optional[str] = None, domain_filter: Optional[str] = None) -> List[Dict[str, Any]]:
+        profile_path = FirefoxExtractor.get_firefox_profile_path(profile)
         if not profile_path:
             return []
 

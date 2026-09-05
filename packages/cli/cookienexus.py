@@ -20,11 +20,13 @@ from extractor.chromium import ChromiumExtractor
 from extractor.firefox import FirefoxExtractor
 
 def cmd_extract(args):
-    print(f"[*] Extracting cookies from {args.browser.capitalize()} (Domain: {args.domain or 'ALL'})...")
+    profile = getattr(args, 'profile', 'Default') or 'Default'
+    print(f"[*] Extracting cookies from {args.browser.capitalize()} (Profile: {profile}, Domain: {args.domain or 'ALL'})...")
     if args.browser in ("chrome", "edge"):
-        cookies = ChromiumExtractor.extract_cookies(browser=args.browser, domain_filter=args.domain)
+        cookies = ChromiumExtractor.extract_cookies(browser=args.browser, profile=profile, domain_filter=args.domain)
     else:
-        cookies = FirefoxExtractor.extract_cookies(domain_filter=args.domain)
+        firefox_profile = profile if profile != "Default" else None
+        cookies = FirefoxExtractor.extract_cookies(profile=firefox_profile, domain_filter=args.domain)
 
     print(f"[+] Successfully extracted {len(cookies)} cookies.")
     if args.out:
@@ -39,7 +41,14 @@ def cmd_extract(args):
 def cmd_push(args):
     print(f"[*] Reading cookies from {args.file}...")
     with open(args.file, "r", encoding="utf-8") as f:
-        cookies = json.load(f)
+        data = json.load(f)
+
+    if isinstance(data, dict) and "cookies" in data and isinstance(data["cookies"], list):
+        cookies = data["cookies"]
+    elif isinstance(data, list):
+        cookies = data
+    else:
+        raise ValueError(f"Invalid cookies format in {args.file}. Expected JSON array of cookies or Playwright storage state object.")
 
     print(f"[*] Encrypting and pushing {len(cookies)} cookies to vault '{args.vault}' at {args.hub}...")
     client = CookieNexusClient(hub_url=args.hub, vault_id=args.vault, password=args.password, api_token=args.token)
@@ -151,6 +160,7 @@ def main():
     # extract
     p_extract = subparsers.add_parser("extract", help="Extract cookies from local browsers")
     p_extract.add_argument("--browser", choices=["chrome", "edge", "firefox"], default="chrome")
+    p_extract.add_argument("--profile", default="Default", help="Browser Profile directory name (default: Default)")
     p_extract.add_argument("--domain", help="Filter domain pattern")
     p_extract.add_argument("--out", help="Output JSON file path")
     p_extract.set_defaults(func=cmd_extract)

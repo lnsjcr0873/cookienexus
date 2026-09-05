@@ -53,6 +53,9 @@ export class E2EECrypto {
   }
 
   static async decrypt(payload, password) {
+    if (!payload || !payload.salt || !payload.iv || !payload.ciphertext || !payload.tag) {
+      throw new Error('Malformed vault payload: missing ciphertext, salt, iv, or tag');
+    }
     const salt = this.fromBase64(payload.salt);
     const iv = this.fromBase64(payload.iv);
     const ciphertext = this.fromBase64(payload.ciphertext);

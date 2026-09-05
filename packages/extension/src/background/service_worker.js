@@ -101,19 +101,44 @@ async function handleIncomingVault(envelope) {
     for (const c of cookies) {
       const cleanDomain = c.domain ? c.domain.replace(/^\./, '') : 'localhost';
       const safePath = (c.path && c.path.startsWith('/')) ? c.path : '/' + (c.path || '');
-      const url = (c.secure ? 'https://' : 'http://') + cleanDomain + safePath;
+      
+      let sameSite = undefined;
+      if (c.sameSite) {
+        const s = String(c.sameSite).toLowerCase();
+        if (s === 'none' || s === 'no_restriction') {
+          sameSite = 'no_restriction';
+        } else if (s === 'strict') {
+          sameSite = 'strict';
+        } else if (s === 'lax') {
+          sameSite = 'lax';
+        } else {
+          sameSite = 'unspecified';
+        }
+      }
+
+      let isSecure = !!c.secure;
+      if (sameSite === 'no_restriction') {
+        isSecure = true;
+      }
+
+      const url = (isSecure ? 'https://' : 'http://') + cleanDomain + safePath;
 
       if (!c.isDeleted) {
         try {
           const setDetails = {
             url,
             name: c.name,
-            value: c.value,
+            value: c.value || '',
             path: safePath,
-            secure: !!c.secure,
+            secure: isSecure,
             httpOnly: !!c.httpOnly,
-            expirationDate: c.expirationDate,
           };
+          if (sameSite) {
+            setDetails.sameSite = sameSite;
+          }
+          if (c.expirationDate && Number(c.expirationDate) > 0 && !isNaN(Number(c.expirationDate))) {
+            setDetails.expirationDate = Number(c.expirationDate);
+          }
           if (c.domain && c.domain.startsWith('.')) {
             setDetails.domain = c.domain;
           }

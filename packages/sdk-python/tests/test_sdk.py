@@ -8,14 +8,15 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from cookienexus.crypto import CryptoEngine
 from cookienexus.client import CookieNexusClient
 from cookienexus.pool import CookiePool
+from cookienexus.session import SessionManager
 
 class TestCookieNexusPythonSDK(unittest.TestCase):
     def test_crypto_roundtrip(self):
-        password = "Master'Pass\"with\\Special/Chars!@#$%^&*()_+"
+        password = "Master'Pass\"with\\Special/Chars!@#$%^&*()_+_🔑_密码"
         vault_id = "test_vault"
         cookies = [
-            {"domain": "github.com", "name": "user_session", "value": "gh_12345", "secure": True, "httpOnly": True},
-            {"domain": "weibo.com", "name": "SUB", "value": "sub_token_67890", "secure": False, "httpOnly": False}
+            {"domain": "github.com", "name": "user_session", "value": "gh_12345_🍪", "secure": True, "httpOnly": True, "sameSite": "strict"},
+            {"domain": "weibo.com", "name": "SUB", "value": "sub_token_中文_67890", "secure": False, "httpOnly": False, "sameSite": "lax"}
         ]
 
         payload = CryptoEngine.encrypt_vault(cookies, password, vault_id)
@@ -26,17 +27,24 @@ class TestCookieNexusPythonSDK(unittest.TestCase):
         decrypted = CryptoEngine.decrypt_vault(payload, password)
         self.assertEqual(len(decrypted), 2)
         self.assertEqual(decrypted[0]["name"], "user_session")
-        self.assertEqual(decrypted[0]["value"], "gh_12345")
+        self.assertEqual(decrypted[0]["value"], "gh_12345_🍪")
+        self.assertEqual(decrypted[1]["value"], "sub_token_中文_67890")
 
     def test_pool_rotation(self):
         # Mock client
         client = CookieNexusClient("http://127.0.0.1:8765", "v1", "pwd")
         pool = CookiePool(client)
-        pool.add_account("acc1", "v1", "github.com")
-        pool.add_account("acc2", "v2", "github.com")
+        pool.add_account("acc1", "v1", "github.com", weight=3)
+        pool.add_account("acc2", "v2", "github.com", weight=1)
 
         self.assertEqual(len(pool.accounts), 2)
         self.assertEqual(pool.accounts[0].account_id, "acc1")
+        self.assertEqual(pool.accounts[0].weight, 3)
+
+        stats = pool.get_stats()
+        self.assertEqual(len(stats), 2)
+        self.assertEqual(stats[0]["account_id"], "acc1")
+        self.assertEqual(stats[0]["weight"], 3)
 
 if __name__ == '__main__':
     unittest.main()

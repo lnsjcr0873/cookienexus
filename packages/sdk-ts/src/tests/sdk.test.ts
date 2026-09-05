@@ -2,23 +2,23 @@ import { SDKCrypto } from '../crypto.js';
 import { CookieNexusClient } from '../client.js';
 import { CookiePool } from '../pool.js';
 
-export function runSDKTests(): boolean {
+export async function runSDKTests(): Promise<boolean> {
   console.log('[TEST] Starting TypeScript SDK Tests...');
   let passed = true;
 
-  const password = 'TestSecretPassword_2026';
+  const password = 'TestSecretPassword_2026_🔑';
   const vaultId = 'test_vault_01';
   const sampleCookies = [
-    { domain: 'api.github.com', name: 'user_session', value: 'gh_secret_123', secure: true, httpOnly: true },
-    { domain: 'google.com', name: 'SID', value: 'google_sid_456', secure: true, httpOnly: false },
+    { domain: 'api.github.com', name: 'user_session', value: 'gh_secret_123_🍪', secure: true, httpOnly: true, sameSite: 'Strict' },
+    { domain: 'google.com', name: 'SID', value: 'google_sid_456', secure: true, httpOnly: false, sameSite: 'Lax' },
   ];
 
-  // 1. Test Encrypt & Decrypt Vault Envelope
+  // 1. Test Encrypt & Decrypt Vault Envelope (including UTF-8 & Emoji support)
   const payload = SDKCrypto.encryptVault(sampleCookies, password, vaultId);
   const decrypted = SDKCrypto.decryptVault(payload, password);
 
-  if (decrypted.length !== 2 || decrypted[0].name !== 'user_session') {
-    console.error('FAIL: SDKCrypto Decrypt mismatch');
+  if (decrypted.length !== 2 || decrypted[0].value !== 'gh_secret_123_🍪') {
+    console.error('FAIL: SDKCrypto Decrypt mismatch on UTF-8 characters');
     passed = false;
   }
 
@@ -29,15 +29,15 @@ export function runSDKTests(): boolean {
     password,
   });
 
-  // 3. Test Cookie Pool Rotation Logic
+  // 3. Test Cookie Pool Rotation Logic & Stats
   const pool = new CookiePool(client);
-  pool.addAccount('account_alpha', 'vault_a', 'github.com');
-  pool.addAccount('account_beta', 'vault_b', 'github.com');
+  pool.addAccount('account_alpha', 'vault_a', 'github.com', 5);
+  pool.addAccount('account_beta', 'vault_b', 'github.com', 1);
 
   // Verify pool stats
   const stats = pool.getStats();
-  if (stats.length !== 2 || stats[0].accountId !== 'account_alpha') {
-    console.error('FAIL: CookiePool account registration failed');
+  if (stats.length !== 2 || stats[0].accountId !== 'account_alpha' || stats[0].weight !== 5) {
+    console.error('FAIL: CookiePool account registration and weight stats failed');
     passed = false;
   }
 
@@ -46,6 +46,5 @@ export function runSDKTests(): boolean {
 }
 
 if (process.argv[1] && process.argv[1].endsWith('sdk.test.js')) {
-  const ok = runSDKTests();
-  process.exit(ok ? 0 : 1);
+  runSDKTests().then(ok => process.exit(ok ? 0 : 1));
 }

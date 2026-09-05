@@ -123,7 +123,17 @@ def run_e2e_integration_test():
         logs_ok = len(logs) > 0 and not any("gh_secret_e2e_token_999" in json.dumps(l) for l in logs)
         print_step("TC-13", "Audit Log Stream Masking", logs_ok, f"{len(logs)} audit entries verified zero plaintext leaks")
 
-        return hub_ready and has_no_plaintext and pull_ok and header_ok and pw_ok and logs_ok
+        # 6. List and Delete Vault Lifecycle check
+        vaults = client.list_vaults()
+        list_ok = "integration_test_vault" in vaults
+        print_step("TC-04", "Vault Discovery & Listing API", list_ok, f"Active vaults: {vaults}")
+
+        del_ok = client.delete_vault()
+        post_del_vaults = client.list_vaults()
+        del_verified = del_ok and ("integration_test_vault" not in post_del_vaults)
+        print_step("TC-04-B", "Vault Deletion & Teardown API", del_verified, "Vault successfully purged from Hub")
+
+        return hub_ready and has_no_plaintext and pull_ok and header_ok and pw_ok and logs_ok and list_ok and del_verified
     finally:
         server_process.terminate()
         server_process.wait()

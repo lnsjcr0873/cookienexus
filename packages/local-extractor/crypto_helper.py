@@ -7,27 +7,42 @@ def decrypt_aes_gcm(key: bytes, iv: bytes, ciphertext_with_tag: bytes) -> str:
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
         aesgcm = AESGCM(key)
         decrypted = aesgcm.decrypt(iv, ciphertext_with_tag, None)
-        return decrypted.decode('utf-8')
+        return decrypted.decode('utf-8', errors='replace')
     except ImportError:
-        # Fallback to Node.js subprocess
+        # Fallback to Node.js subprocess using JSON via stdin for security & robustness
         key_b64 = base64.b64encode(key).decode('utf-8')
         iv_b64 = base64.b64encode(iv).decode('utf-8')
-        # tag is last 16 bytes
         tag = ciphertext_with_tag[-16:]
         ct = ciphertext_with_tag[:-16]
         ct_b64 = base64.b64encode(ct).decode('utf-8')
         tag_b64 = base64.b64encode(tag).decode('utf-8')
 
-        script = f"""
+        input_data = json.dumps({
+            "key": key_b64,
+            "iv": iv_b64,
+            "tag": tag_b64,
+            "ciphertext": ct_b64
+        })
+
+        script = """
         const crypto = require('crypto');
-        const key = Buffer.from('{key_b64}', 'base64');
-        const iv = Buffer.from('{iv_b64}', 'base64');
-        const tag = Buffer.from('{tag_b64}', 'base64');
-        const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-        decipher.setAuthTag(tag);
-        let dec = decipher.update('{ct_b64}', 'base64', 'utf8');
-        dec += decipher.final('utf8');
-        process.stdout.write(dec);
+        let raw = '';
+        process.stdin.on('data', c => raw += c);
+        process.stdin.on('end', () => {
+          try {
+            const data = JSON.parse(raw);
+            const key = Buffer.from(data.key, 'base64');
+            const iv = Buffer.from(data.iv, 'base64');
+            const tag = Buffer.from(data.tag, 'base64');
+            const ct = Buffer.from(data.ciphertext, 'base64');
+            const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+            decipher.setAuthTag(tag);
+            const decryptedBuf = Buffer.concat([decipher.update(ct), decipher.final()]);
+            process.stdout.write(decryptedBuf.toString('utf8'));
+          } catch (err) {
+            process.exit(1);
+          }
+        });
         """
-        res = subprocess.run(['node', '-e', script], capture_output=True, text=True, check=True)
+        res = subprocess.run(['node', '-e', script], input=input_data, capture_output=True, text=True, encoding='utf-8', check=True)
         return res.stdout

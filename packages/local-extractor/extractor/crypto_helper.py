@@ -44,5 +44,5 @@ def decrypt_aes_gcm(key: bytes, iv: bytes, ciphertext_with_tag: bytes) -> str:
           }
         });
         """
-        res = subprocess.run(['node', '-e', script], input=input_data, capture_output=True, text=True, check=True)
+        res = subprocess.run(['node', '-e', script], input=input_data, capture_output=True, text=True, encoding='utf-8', check=True)
         return res.stdout

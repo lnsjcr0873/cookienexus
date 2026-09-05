@@ -90,7 +90,7 @@ class CryptoEngine:
           }
         });
         """
-        result = subprocess.run(['node', '-e', script], input=input_data, capture_output=True, text=True, check=True)
+        result = subprocess.run(['node', '-e', script], input=input_data, capture_output=True, text=True, encoding='utf-8', check=True)
         return json.loads(result.stdout)
 
     @staticmethod
@@ -134,5 +134,5 @@ class CryptoEngine:
           }
         });
         """
-        result = subprocess.run(['node', '-e', script], input=input_data, capture_output=True, text=True, check=True)
+        result = subprocess.run(['node', '-e', script], input=input_data, capture_output=True, text=True, encoding='utf-8', check=True)
         return json.loads(result.stdout)

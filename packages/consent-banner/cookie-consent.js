@@ -25,11 +25,33 @@
 
       this.consentState = this.loadState();
       this.initGCM();
+      this.initAutoBlocker();
       this.initUI();
 
       if (this.consentState) {
         this.applyConsent(this.consentState);
       }
+    }
+
+    initAutoBlocker() {
+      if (!this.config.autoBlock || this.consentState) return;
+      try {
+        const observer = new MutationObserver((mutations) => {
+          for (const m of mutations) {
+            for (const node of m.addedNodes) {
+              if (node.tagName === 'SCRIPT' && node.type !== 'text/plain' && node.getAttribute('data-cookie-category')) {
+                const category = node.getAttribute('data-cookie-category');
+                if (!this.consentState || !this.consentState[category]) {
+                  node.type = 'text/plain';
+                  console.log(`[CookieNexus Consent] Auto-blocked script for category: ${category}`);
+                }
+              }
+            }
+          }
+        });
+        observer.observe(document.documentElement, { childList: true, subtree: true });
+        this.observer = observer;
+      } catch (e) {}
     }
 
     loadState() {
@@ -180,6 +202,10 @@
     }
 
     saveAndClose(state) {
+      if (this.observer) {
+        try { this.observer.disconnect(); } catch (e) {}
+        this.observer = null;
+      }
       this.consentState = state;
       this.saveState(state);
       this.applyConsent(state);

@@ -110,6 +110,9 @@ export class ProbingEngine {
 
       if (!isContentValid) {
         this.triggerAlert(probe, status, failureReason);
+        if (probe.healing?.action === 'webhook' && probe.healing.webhookUrl) {
+          this.dispatchHealingWebhook(probe.healing.webhookUrl, probe, status, failureReason);
+        }
       }
 
       return probe;
@@ -120,6 +123,9 @@ export class ProbingEngine {
       probe.lastErrorMessage = err.message || 'Network check failed';
       await this.storage.saveProbe(probe);
       this.triggerAlert(probe, 'DEGRADED', probe.lastErrorMessage || 'Network check failed');
+      if (probe.healing?.action === 'webhook' && probe.healing.webhookUrl) {
+        this.dispatchHealingWebhook(probe.healing.webhookUrl, probe, 'DEGRADED', probe.lastErrorMessage || 'Network check failed');
+      }
       return probe;
     }
   }
@@ -171,6 +177,39 @@ export class ProbingEngine {
       });
       req.end();
     });
+  }
+
+  private dispatchHealingWebhook(webhookUrl: string, probe: ProbeDefinition, status: string, reason: string) {
+    try {
+      const u = new URL(webhookUrl);
+      const isHttps = u.protocol === 'https:';
+      const client = isHttps ? https : http;
+      const payload = JSON.stringify({
+        event: 'SESSION_EXPIRATION_ALERT',
+        probeId: probe.probeId,
+        domain: probe.domain,
+        vaultId: probe.vaultId,
+        status,
+        reason,
+        timestamp: Date.now(),
+      });
+
+      const req = client.request(u, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload).toString(),
+        },
+        timeout: 5000,
+      });
+      req.on('error', (err) => {
+        console.warn(`[ProbingEngine] Healing webhook error for ${probe.domain}:`, err.message);
+      });
+      req.write(payload);
+      req.end();
+    } catch (e: any) {
+      console.warn(`[ProbingEngine] Invalid healing webhook URL ${webhookUrl}:`, e.message);
+    }
   }
 
   private triggerAlert(probe: ProbeDefinition, status: 'HEALTHY' | 'EXPIRED' | 'DEGRADED', reason: string) {

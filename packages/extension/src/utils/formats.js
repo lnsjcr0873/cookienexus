@@ -106,4 +106,110 @@ export class CookieFormats {
     }
     return cookies;
   }
+
+  /**
+   * Export to cURL command string
+   */
+  static toCurl(cookies, url = 'https://example.com') {
+    const headerStr = CookieFormats.toHeader(cookies);
+    return `curl -b "${headerStr}" "${url}"`;
+  }
+
+  /**
+   * Parse HTTP Cookie Header string into CookieRecord array
+   */
+  static parseHeader(headerStr, domain = 'localhost') {
+    if (!headerStr) return [];
+    const cleanDomain = domain.replace(/^\./, '');
+    const pairs = headerStr.split(';');
+    const cookies = [];
+
+    for (const pair of pairs) {
+      const idx = pair.indexOf('=');
+      if (idx === -1) continue;
+      const name = pair.slice(0, idx).trim();
+      const value = pair.slice(idx + 1).trim();
+      if (!name) continue;
+
+      cookies.push({
+        domain: cleanDomain,
+        name,
+        value,
+        path: '/',
+        secure: true,
+        httpOnly: false,
+        sameSite: 'Lax',
+        session: true,
+        updatedAt: Date.now(),
+      });
+    }
+    return cookies;
+  }
+
+  /**
+   * Parse single Set-Cookie response header string into CookieRecord
+   */
+  static parseSetCookie(setCookieStr, defaultDomain = 'localhost') {
+    if (!setCookieStr) return null;
+    const parts = setCookieStr.split(';').map(p => p.trim());
+    if (parts.length === 0) return null;
+
+    const firstPair = parts[0];
+    const eqIdx = firstPair.indexOf('=');
+    if (eqIdx === -1) return null;
+
+    const name = firstPair.slice(0, eqIdx).trim();
+    const value = firstPair.slice(eqIdx + 1).trim();
+
+    let domain = defaultDomain;
+    let path = '/';
+    let secure = false;
+    let httpOnly = false;
+    let sameSite = 'Lax';
+    let expirationDate = null;
+    let session = true;
+
+    for (let i = 1; i < parts.length; i++) {
+      const part = parts[i];
+      const lower = part.toLowerCase();
+      if (lower === 'secure') {
+        secure = true;
+      } else if (lower === 'httponly') {
+        httpOnly = true;
+      } else if (lower.startsWith('samesite=')) {
+        const val = part.slice(9).trim().toLowerCase();
+        sameSite = val === 'strict' ? 'Strict' : val === 'none' ? 'None' : 'Lax';
+      } else if (lower.startsWith('domain=')) {
+        domain = part.slice(7).trim();
+      } else if (lower.startsWith('path=')) {
+        path = part.slice(5).trim() || '/';
+      } else if (lower.startsWith('expires=')) {
+        const expiresStr = part.slice(8).trim();
+        const parsedTime = Date.parse(expiresStr);
+        if (!isNaN(parsedTime)) {
+          expirationDate = Math.floor(parsedTime / 1000);
+          session = false;
+        }
+      } else if (lower.startsWith('max-age=')) {
+        const maxAgeSec = parseInt(part.slice(8).trim(), 10);
+        if (!isNaN(maxAgeSec)) {
+          expirationDate = Math.floor(Date.now() / 1000 + maxAgeSec);
+          session = false;
+        }
+      }
+    }
+
+    return {
+      domain,
+      name,
+      value,
+      path,
+      secure,
+      httpOnly,
+      sameSite,
+      expirationDate,
+      session,
+      updatedAt: Date.now(),
+    };
+  }
 }

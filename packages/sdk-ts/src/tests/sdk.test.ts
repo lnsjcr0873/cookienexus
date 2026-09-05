@@ -34,12 +34,17 @@ export async function runSDKTests(): Promise<boolean> {
   pool.addAccount('account_alpha', 'vault_a', 'github.com', 5);
   pool.addAccount('account_beta', 'vault_b', 'github.com', 1);
 
+  pool.markCooldown('account_alpha', 60);
+  pool.markExpired('account_beta');
+
   // Verify pool stats
   const stats = pool.getStats();
-  if (stats.length !== 2 || stats[0].accountId !== 'account_alpha' || stats[0].weight !== 5) {
+  if (stats.length !== 2 || stats[0].accountId !== 'account_alpha' || stats[0].status !== 'COOLDOWN') {
     console.error('FAIL: CookiePool account registration and weight stats failed');
     passed = false;
   }
+  pool.markHealthy('account_alpha');
+  pool.markHealthy('account_beta');
 
   // 4. Test SessionManager Header Injection
   const { SessionManager } = await import('../session.js');

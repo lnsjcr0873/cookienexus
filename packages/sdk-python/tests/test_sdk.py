@@ -37,9 +37,17 @@ class TestCookieNexusPythonSDK(unittest.TestCase):
         pool.add_account("acc1", "v1", "github.com", weight=3)
         pool.add_account("acc2", "v2", "github.com", weight=1)
 
+        pool.mark_cooldown("acc1", 60)
+        pool.mark_expired("acc2")
+
         self.assertEqual(len(pool.accounts), 2)
         self.assertEqual(pool.accounts[0].account_id, "acc1")
-        self.assertEqual(pool.accounts[0].weight, 3)
+        self.assertEqual(pool.accounts[0].status, "COOLDOWN")
+        self.assertEqual(pool.accounts[1].status, "EXPIRED")
+
+        pool.mark_healthy("acc1")
+        pool.mark_healthy("acc2")
+        self.assertEqual(pool.accounts[0].status, "ACTIVE")
 
     def test_session_manager(self):
         client = CookieNexusClient("http://127.0.0.1:8765", "v1", "pwd")

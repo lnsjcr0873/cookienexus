@@ -81,17 +81,21 @@ export class CookieCRDT {
   }
 
   public mergeEntry(incoming: CRDTCookieEntry): boolean {
+    if (!incoming || !incoming.key || !incoming.nodeId) {
+      return false;
+    }
+    // Advance vector clock and Lamport timestamp upon observing remote message
+    this.updateVectorClock(incoming.nodeId, incoming.lamport || 0);
+
     const existing = this.state.get(incoming.key);
     if (!existing) {
       this.state.set(incoming.key, incoming);
-      this.updateVectorClock(incoming.nodeId, incoming.lamport);
       return true;
     }
 
     // 1. Compare Lamport clock
     if (incoming.lamport > existing.lamport) {
       this.state.set(incoming.key, incoming);
-      this.updateVectorClock(incoming.nodeId, incoming.lamport);
       return true;
     } else if (incoming.lamport < existing.lamport) {
       return false;
@@ -100,7 +104,6 @@ export class CookieCRDT {
     // 2. Tie-breaker: Physical timestamp
     if (incoming.timestamp > existing.timestamp) {
       this.state.set(incoming.key, incoming);
-      this.updateVectorClock(incoming.nodeId, incoming.lamport);
       return true;
     } else if (incoming.timestamp < existing.timestamp) {
       return false;
@@ -109,7 +112,6 @@ export class CookieCRDT {
     // 3. Deterministic Node ID tie-breaker (lexicographical)
     if (incoming.nodeId > existing.nodeId) {
       this.state.set(incoming.key, incoming);
-      this.updateVectorClock(incoming.nodeId, incoming.lamport);
       return true;
     }
 

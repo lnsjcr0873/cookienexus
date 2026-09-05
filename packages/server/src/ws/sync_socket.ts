@@ -10,15 +10,30 @@ export interface WSClientContext {
   vaultId: string;
   authenticated: boolean;
   ip: string;
+  isAlive: boolean;
 }
 
 export class SyncWebSocketServer {
   private wss: WebSocketServer;
   private clients: Set<WSClientContext> = new Set();
+  private heartbeatTimer: NodeJS.Timeout;
 
   constructor(server: http.Server, private storage: StorageAdapter, private audit: AuditLogger) {
-    this.wss = new WebSocketServer({ server, path: '/ws/sync' });
+    this.wss = new WebSocketServer({ server, path: '/ws/sync', maxPayload: 10 * 1024 * 1024 });
     this.init();
+
+    // Periodic heartbeat to clean dead/zombie sockets
+    this.heartbeatTimer = setInterval(() => {
+      for (const client of this.clients) {
+        if (!client.isAlive) {
+          try { client.ws.terminate(); } catch (_) {}
+          this.clients.delete(client);
+        } else {
+          client.isAlive = false;
+          try { client.ws.ping(); } catch (_) {}
+        }
+      }
+    }, 30000);
   }
 
   private init() {
@@ -29,11 +44,17 @@ export class SyncWebSocketServer {
         deviceId: 'unknown',
         vaultId: 'default',
         authenticated: true, // For demo/local zero-knowledge hub; can verify auth token
-        ip
+        ip,
+        isAlive: true,
       };
       this.clients.add(ctx);
 
+      ws.on('pong', () => {
+        ctx.isAlive = true;
+      });
+
       ws.on('message', async (data: Buffer | string) => {
+        ctx.isAlive = true;
         try {
           const message = JSON.parse(data.toString());
           await this.handleMessage(ctx, message);
@@ -149,6 +170,9 @@ export class SyncWebSocketServer {
   }
 
   public close(): Promise<void> {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+    }
     return new Promise((resolve) => {
       for (const client of this.clients) {
         try {

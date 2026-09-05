@@ -46,12 +46,25 @@ export async function runSDKTests(): Promise<boolean> {
   pool.markHealthy('account_alpha');
   pool.markHealthy('account_beta');
 
-  // 4. Test SessionManager Header Injection
+  // 4. Test SessionManager Header & Framework Injections
   const { SessionManager } = await import('../session.js');
   const sessionMgr = new SessionManager(client);
-  if (typeof sessionMgr.injectHeaders !== 'function' || typeof sessionMgr.injectAxios !== 'function') {
+  if (typeof sessionMgr.injectHeaders !== 'function' ||
+      typeof sessionMgr.injectAxios !== 'function' ||
+      typeof sessionMgr.injectFetchOptions !== 'function' ||
+      typeof sessionMgr.injectPlaywright !== 'function' ||
+      typeof sessionMgr.injectPuppeteer !== 'function') {
     console.error('FAIL: SessionManager methods missing');
     passed = false;
+  }
+
+  // 5. Test Malformed Envelope Rejection
+  try {
+    SDKCrypto.decryptVault({} as any, 'password');
+    console.error('FAIL: Expected malformed envelope to throw');
+    passed = false;
+  } catch (e) {
+    // Expected
   }
 
   console.log(`[TEST] TypeScript SDK Tests Finished. Result: ${passed ? 'PASSED' : 'FAILED'}`);

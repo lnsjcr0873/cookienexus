@@ -8,6 +8,16 @@ class SessionManager:
     def __init__(self, client: CookieNexusClient):
         self.client = client
 
+    def inject_headers(self, headers: Dict[str, str], domain: str, vault_id: Optional[str] = None) -> Dict[str, str]:
+        """
+        Injects or appends Cookie header into an HTTP headers dictionary.
+        """
+        header_str = self.client.get_cookie_header(domain, vault_id=vault_id)
+        updated = dict(headers or {})
+        if header_str:
+            updated["Cookie"] = header_str
+        return updated
+
     def inject_httpx(self, httpx_client: Any, domain: str, vault_id: Optional[str] = None) -> None:
         """
         Injects cookies directly into an httpx.Client or httpx.AsyncClient.

@@ -52,11 +52,16 @@ class TestCookieNexusPythonSDK(unittest.TestCase):
     def test_session_manager(self):
         client = CookieNexusClient("http://127.0.0.1:8765", "v1", "pwd")
         sm = SessionManager(client)
+        self.assertTrue(hasattr(sm, 'inject_headers'))
         self.assertTrue(hasattr(sm, 'inject_requests'))
         self.assertTrue(hasattr(sm, 'inject_httpx'))
         self.assertTrue(hasattr(sm, 'inject_aiohttp'))
         self.assertTrue(hasattr(sm, 'inject_playwright'))
         self.assertTrue(hasattr(sm, 'inject_selenium'))
+
+    def test_malformed_envelope_handling(self):
+        with self.assertRaises(ValueError):
+            CryptoEngine.decrypt_vault({"ciphertext": "abc"}, "wrong_password")
 
 if __name__ == '__main__':
     unittest.main()

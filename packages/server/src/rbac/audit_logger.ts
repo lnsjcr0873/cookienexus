@@ -32,6 +32,9 @@ export class AuditLogger {
       timestamp: new Date().toISOString(),
     };
     this.logs.push(sanitizedEntry);
+    if (this.logs.length > 5000) {
+      this.logs.splice(0, this.logs.length - 5000);
+    }
     console.log(`[AUDIT] [${sanitizedEntry.timestamp}] [${sanitizedEntry.action}] [User:${sanitizedEntry.userId}] [${sanitizedEntry.status}]: ${sanitizedEntry.details}`);
   }
 

@@ -75,6 +75,7 @@ export class E2EECrypto {
   }
 
   static toBase64(uint8) {
+    if (!uint8 || uint8.length === 0) return '';
     const CHUNK_SIZE = 0x8000; // 32KB chunking
     let binary = '';
     for (let i = 0; i < uint8.length; i += CHUNK_SIZE) {
@@ -85,7 +86,9 @@ export class E2EECrypto {
   }
 
   static fromBase64(base64) {
-    const binary = atob(base64);
+    const clean = (base64 || '').trim();
+    if (!clean) return new Uint8Array(0);
+    const binary = atob(clean);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) {
       bytes[i] = binary.charCodeAt(i);

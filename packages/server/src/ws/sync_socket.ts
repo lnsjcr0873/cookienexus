@@ -147,4 +147,16 @@ export class SyncWebSocketServer {
       }
     }
   }
+
+  public close(): Promise<void> {
+    return new Promise((resolve) => {
+      for (const client of this.clients) {
+        try {
+          client.ws.terminate();
+        } catch (_) {}
+      }
+      this.clients.clear();
+      this.wss.close(() => resolve());
+    });
+  }
 }

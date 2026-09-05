@@ -55,6 +55,10 @@ export class CookieNexusHub {
   }
 
   public async stop(): Promise<void> {
+    this.prober.stopAll();
+    if (this.wsServer) {
+      await this.wsServer.close();
+    }
     return new Promise((resolve, reject) => {
       this.server.close((err) => {
         if (err) reject(err);

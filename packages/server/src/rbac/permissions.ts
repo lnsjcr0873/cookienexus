@@ -27,13 +27,16 @@ export class RBACManager {
     if (user.role === 'admin') return true;
     if (user.allowedDomains.includes('*')) return true;
 
-    const lowerTarget = targetDomain.toLowerCase();
+    const lowerTarget = (targetDomain || '').toLowerCase().trim().replace(/^\./, '');
+    if (!lowerTarget) return false;
+
     return user.allowedDomains.some(pattern => {
-      if (pattern.startsWith('*.')) {
-        const root = pattern.slice(2).toLowerCase();
+      const cleanPattern = pattern.toLowerCase().trim();
+      if (cleanPattern.startsWith('*.')) {
+        const root = cleanPattern.slice(2).replace(/^\./, '');
         return lowerTarget === root || lowerTarget.endsWith('.' + root);
       }
-      return lowerTarget === pattern.toLowerCase();
+      return lowerTarget === cleanPattern.replace(/^\./, '');
     });
   }
 

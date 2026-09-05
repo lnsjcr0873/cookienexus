@@ -31,6 +31,13 @@ export class ProbingEngine {
     }
   }
 
+  public stopAll() {
+    for (const timer of this.intervals.values()) {
+      clearInterval(timer);
+    }
+    this.intervals.clear();
+  }
+
   public async initAllProbes() {
     const probes = await this.storage.listProbes();
     for (const probe of probes) {

@@ -36,8 +36,17 @@ export class CookiePool {
     let selected: PoolAccount;
 
     if (strategy === 'random') {
-      const idx = Math.floor(Math.random() * this.accounts.length);
-      selected = this.accounts[idx];
+      const totalWeight = this.accounts.reduce((sum, a) => sum + Math.max(a.weight || 1, 1), 0);
+      let randomVal = Math.random() * totalWeight;
+      selected = this.accounts[0];
+      for (const account of this.accounts) {
+        const w = Math.max(account.weight || 1, 1);
+        if (randomVal < w) {
+          selected = account;
+          break;
+        }
+        randomVal -= w;
+      }
     } else if (strategy === 'least_used') {
       selected = [...this.accounts].sort((a, b) => a.usageCount - b.usageCount)[0];
     } else {
@@ -57,6 +66,8 @@ export class CookiePool {
     return this.accounts.map(a => ({
       accountId: a.accountId,
       vaultId: a.vaultId,
+      domain: a.domain,
+      weight: a.weight || 1,
       usageCount: a.usageCount,
       lastUsed: a.lastUsed ? new Date(a.lastUsed).toISOString() : 'never',
     }));

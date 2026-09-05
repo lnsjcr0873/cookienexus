@@ -70,7 +70,7 @@ class FirefoxExtractor:
                     "secure": bool(is_secure),
                     "httpOnly": bool(is_httponly),
                     "sameSite": same_site_str,
-                    "expirationDate": expiry
+                    "expirationDate": expiry if (expiry and expiry > 0) else None
                 })
             return results
         finally:

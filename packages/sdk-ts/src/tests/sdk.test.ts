@@ -22,7 +22,7 @@ export async function runSDKTests(): Promise<boolean> {
     passed = false;
   }
 
-  // 2. Test Playwright Storage State conversion
+  // 2. Test Playwright Storage State conversion & cURL exporter
   const client = new CookieNexusClient({
     hubUrl: 'http://127.0.0.1:8765',
     vaultId,

@@ -120,8 +120,12 @@ export class CookieFormats {
    */
   static parseHeader(headerStr, domain = 'localhost') {
     if (!headerStr) return [];
+    let cleanStr = headerStr.trim();
+    if (cleanStr.toLowerCase().startsWith('cookie:')) {
+      cleanStr = cleanStr.substring('cookie:'.length).trim();
+    }
     const cleanDomain = domain.replace(/^\./, '');
-    const pairs = headerStr.split(';');
+    const pairs = cleanStr.split(';');
     const cookies = [];
 
     for (const pair of pairs) {
@@ -147,11 +151,15 @@ export class CookieFormats {
   }
 
   /**
-   * Parse single Set-Cookie response header string into CookieRecord
+   * Parse single or multiline Set-Cookie response header string into CookieRecord array
    */
   static parseSetCookie(setCookieStr, defaultDomain = 'localhost') {
     if (!setCookieStr) return null;
-    const parts = setCookieStr.split(';').map(p => p.trim());
+    let cleanStr = setCookieStr.trim();
+    if (cleanStr.toLowerCase().startsWith('set-cookie:')) {
+      cleanStr = cleanStr.substring('set-cookie:'.length).trim();
+    }
+    const parts = cleanStr.split(';').map(p => p.trim());
     if (parts.length === 0) return null;
 
     const firstPair = parts[0];
@@ -211,5 +219,57 @@ export class CookieFormats {
       session,
       updatedAt: Date.now(),
     };
+  }
+
+  /**
+   * Intelligently detects and parses any raw cookie input format:
+   * JSON, Netscape, Set-Cookie lines, cURL command, or raw Cookie Header.
+   */
+  static parseAny(rawText, defaultDomain = 'localhost') {
+    if (!rawText || !rawText.trim()) return [];
+    const text = rawText.trim();
+
+    // 1. Standard JSON (Array or Playwright storageState / CookieNexus envelope)
+    if (text.startsWith('[') || text.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed)) return parsed;
+        if (parsed.cookies && Array.isArray(parsed.cookies)) return parsed.cookies;
+        if (parsed.cookie) return [parsed.cookie];
+      } catch (e) {}
+    }
+
+    // 2. Netscape format (contains tabs or #HttpOnly_ / # Netscape header)
+    if (text.includes('\t') || text.includes('#HttpOnly_') || text.includes('# Netscape')) {
+      const netscape = CookieFormats.parseNetscape(text);
+      if (netscape.length > 0) return netscape;
+    }
+
+    // 3. cURL command (e.g. `curl -b "..." ...` or `curl -H "Cookie: ..." ...`)
+    if (text.startsWith('curl ') || text.includes(' -b ') || text.includes(' --cookie ') || text.includes('Cookie:')) {
+      const bMatch = text.match(/(?:-b|--cookie)\s+["']([^"']+)["']/i);
+      if (bMatch && bMatch[1]) {
+        return CookieFormats.parseHeader(bMatch[1], defaultDomain);
+      }
+      const hMatch = text.match(/-H\s+["']Cookie:\s*([^"']+)["']/i);
+      if (hMatch && hMatch[1]) {
+        return CookieFormats.parseHeader(hMatch[1], defaultDomain);
+      }
+    }
+
+    // 4. Multiple or single Set-Cookie lines
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const isSetCookieList = lines.every(l => l.toLowerCase().startsWith('set-cookie:') || l.includes('expires=') || l.includes('max-age=') || l.includes('samesite='));
+    if (isSetCookieList) {
+      const results = [];
+      for (const line of lines) {
+        const sc = CookieFormats.parseSetCookie(line, defaultDomain);
+        if (sc) results.push(sc);
+      }
+      if (results.length > 0) return results;
+    }
+
+    // 5. Fallback: parse as standard Cookie Header
+    return CookieFormats.parseHeader(text, defaultDomain);
   }
 }

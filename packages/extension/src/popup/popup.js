@@ -204,8 +204,12 @@ document.getElementById('exp-header').addEventListener('click', () => {
   document.getElementById('export-textarea').value = CookieFormats.toHeader(currentCookies);
 });
 
-document.getElementById('exp-playwright').addEventListener('click', () => {
+document.getElementById('exp-playwright')?.addEventListener('click', () => {
   document.getElementById('export-textarea').value = CookieFormats.toPlaywright(currentCookies);
+});
+
+document.getElementById('exp-curl')?.addEventListener('click', () => {
+  document.getElementById('export-textarea').value = CookieFormats.toCurl(currentCookies, activeTabUrl || 'https://example.com');
 });
 
 // Copy Export
@@ -221,13 +225,11 @@ document.getElementById('import-btn').addEventListener('click', async () => {
   const raw = document.getElementById('export-textarea').value.trim();
   if (!raw) return alert('Paste cookie data to import');
 
-  let imported = [];
+  const defaultDomain = activeTabUrl ? new URL(activeTabUrl).hostname : 'localhost';
   try {
-    if (raw.startsWith('[') || raw.startsWith('{')) {
-      const parsed = JSON.parse(raw);
-      imported = Array.isArray(parsed) ? parsed : (parsed.cookies || []);
-    } else {
-      imported = CookieFormats.parseNetscape(raw);
+    const imported = CookieFormats.parseAny(raw, defaultDomain);
+    if (!imported || imported.length === 0) {
+      return alert('No valid cookies found in provided text.');
     }
 
     for (const c of imported) {

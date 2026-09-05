@@ -107,23 +107,65 @@ def run_e2e_integration_test():
         pull_ok = len(decrypted_cookies) == 1 and decrypted_cookies[0]["value"] == "gh_secret_e2e_token_999"
         print_step("TC-03-C", "Client E2EE Decrypt & Filter", pull_ok, f"Decrypted domain 'github.com': {len(decrypted_cookies)} cookie")
 
-        # 4. Header and Playwright format generation
+        # 4. Header, Playwright, and cURL format generation
         header_str = client.get_cookie_header("github.com")
         header_ok = header_str == "user_session=gh_secret_e2e_token_999"
         print_step("TC-02", "Format Exporter: HTTP Header", header_ok, f"Output: '{header_str}'")
+
+        curl_cmd = client.get_curl_command("github.com", url="https://api.github.com/user")
+        curl_ok = 'curl -b "user_session=gh_secret_e2e_token_999"' in curl_cmd and "https://api.github.com/user" in curl_cmd
+        print_step("TC-02-B", "Format Exporter: cURL Command", curl_ok, f"Output: '{curl_cmd}'")
 
         pw_state = client.get_playwright_storage_state("github.com")
         pw_ok = len(pw_state["cookies"]) == 1 and pw_state["cookies"][0]["name"] == "user_session"
         print_step("TC-10-B", "Format Exporter: Playwright storageState", pw_ok, "Valid storageState schema generated")
 
-        # 5. Audit Log Masking check
-        audit_req = urllib.request.Request("http://127.0.0.1:8765/api/v1/audit/logs")
-        with urllib.request.urlopen(audit_req) as resp:
-            logs = json.loads(resp.read().decode('utf-8'))
-        logs_ok = len(logs) > 0 and not any("gh_secret_e2e_token_999" in json.dumps(l) for l in logs)
-        print_step("TC-13", "Audit Log Stream Masking", logs_ok, f"{len(logs)} audit entries verified zero plaintext leaks")
+        # 5. Probe Lifecycle API Check
+        probe_def = {
+            "probeId": "e2e_github_health",
+            "vaultId": "integration_test_vault",
+            "domain": "github.com",
+            "request": {
+                "url": "http://127.0.0.1:8765/health",
+                "method": "GET",
+                "timeoutMs": 3000
+            },
+            "assertion": {
+                "expectedStatus": 200,
+                "mustContain": ["status", "OK"]
+            },
+            "scheduleMs": 30000
+        }
+        reg_res = client.register_probe(probe_def)
+        probes_list = client.list_probes()
+        probe_reg_ok = any(p.get("probeId") == "e2e_github_health" for p in probes_list)
+        print_step("TC-05-A", "Session Probe Registration & Discovery", probe_reg_ok, f"Active Probes: {len(probes_list)}")
 
-        # 6. List and Delete Vault Lifecycle check
+        check_res = client.check_probe("e2e_github_health")
+        check_ok = check_res.get("lastStatus") == "HEALTHY" and check_res.get("lastLatencyMs") is not None
+        print_step("TC-05-B", "Session Probe Immediate Execution", check_ok, f"Status: {check_res.get('lastStatus')} (Latency: {check_res.get('lastLatencyMs')}ms)")
+
+        del_probe_ok = client.delete_probe("e2e_github_health")
+        probes_after_del = client.list_probes()
+        probe_del_ok = del_probe_ok and not any(p.get("probeId") == "e2e_github_health" for p in probes_after_del)
+        print_step("TC-05-C", "Session Probe Teardown", probe_del_ok, "Probe unregistered and purged")
+
+        # 6. Audit Log Masking check via SDK
+        audit_logs = client.get_audit_logs(50)
+        logs_ok = len(audit_logs) > 0 and not any("gh_secret_e2e_token_999" in json.dumps(l) for l in audit_logs)
+        print_step("TC-13", "Audit Log Stream Masking", logs_ok, f"{len(audit_logs)} audit entries verified zero plaintext leaks")
+
+        # 7. CLI Subcommands End-to-End Verification
+        cli_res = subprocess.run(
+            ["python", os.path.join(ROOT_DIR, "packages", "cli", "cookienexus.py"), "pull",
+             "--hub", "http://127.0.0.1:8765", "--vault", "integration_test_vault",
+             "--password", "E2EE_Integration_Password_2026", "--format", "curl"],
+            capture_output=True, text=True, encoding="utf-8"
+        )
+        cli_ok = cli_res.returncode == 0 and "curl -b" in cli_res.stdout
+        print_step("TC-CLI-01", "Unified CLI Command Execution", cli_ok, "cookienexus pull --format curl executed successfully")
+
+        # 8. List and Delete Vault Lifecycle check
         vaults = client.list_vaults()
         list_ok = "integration_test_vault" in vaults
         print_step("TC-04", "Vault Discovery & Listing API", list_ok, f"Active vaults: {vaults}")
@@ -133,7 +175,7 @@ def run_e2e_integration_test():
         del_verified = del_ok and ("integration_test_vault" not in post_del_vaults)
         print_step("TC-04-B", "Vault Deletion & Teardown API", del_verified, "Vault successfully purged from Hub")
 
-        return hub_ready and has_no_plaintext and pull_ok and header_ok and pw_ok and logs_ok and list_ok and del_verified
+        return hub_ready and has_no_plaintext and pull_ok and header_ok and curl_ok and pw_ok and probe_reg_ok and check_ok and probe_del_ok and logs_ok and cli_ok and list_ok and del_verified
     finally:
         server_process.terminate()
         server_process.wait()

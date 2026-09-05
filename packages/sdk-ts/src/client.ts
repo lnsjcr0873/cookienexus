@@ -85,6 +85,15 @@ export class CookieNexusClient {
   }
 
   /**
+   * Generates cURL command string with cookie headers.
+   */
+  async getCurlCommand(domain?: string, targetUrl: string = 'https://example.com', vaultIdOverride?: string): Promise<string> {
+    const cookies = await this.getCookies(domain, vaultIdOverride);
+    const headerStr = cookies.map((c: any) => `${c.name}=${c.value}`).join('; ');
+    return `curl -b "${headerStr}" "${targetUrl}"`;
+  }
+
+  /**
    * Lists all vault IDs stored on the central Hub.
    */
   async listVaults(): Promise<string[]> {
@@ -102,6 +111,53 @@ export class CookieNexusClient {
     const hubBase = this.options.hubUrl.replace(/\/+$/, '');
     const url = `${hubBase}/api/v1/vault/${encodeURIComponent(targetVault)}`;
     return this.httpDelete(url);
+  }
+
+  /**
+   * Lists all registered session health probes.
+   */
+  async listProbes(): Promise<any[]> {
+    const hubBase = this.options.hubUrl.replace(/\/+$/, '');
+    const url = `${hubBase}/api/v1/probes`;
+    const result = await this.httpGet<any[]>(url);
+    return result || [];
+  }
+
+  /**
+   * Registers a new session health probe.
+   */
+  async registerProbe(probe: any): Promise<any> {
+    const hubBase = this.options.hubUrl.replace(/\/+$/, '');
+    const url = `${hubBase}/api/v1/probes`;
+    return this.httpPost<any>(url, probe);
+  }
+
+  /**
+   * Deletes a registered session health probe.
+   */
+  async deleteProbe(probeId: string): Promise<boolean> {
+    const hubBase = this.options.hubUrl.replace(/\/+$/, '');
+    const url = `${hubBase}/api/v1/probes/${encodeURIComponent(probeId)}`;
+    return this.httpDelete(url);
+  }
+
+  /**
+   * Triggers an immediate execution check for a registered session probe.
+   */
+  async checkProbe(probeId: string): Promise<any> {
+    const hubBase = this.options.hubUrl.replace(/\/+$/, '');
+    const url = `${hubBase}/api/v1/probes/check/${encodeURIComponent(probeId)}`;
+    return this.httpPost<any>(url, {});
+  }
+
+  /**
+   * Fetches recent audit trail logs from the Hub.
+   */
+  async getAuditLogs(limit: number = 100): Promise<any[]> {
+    const hubBase = this.options.hubUrl.replace(/\/+$/, '');
+    const url = `${hubBase}/api/v1/audit/logs`;
+    const result = await this.httpGet<any[]>(url);
+    return result ? result.slice(0, limit) : [];
   }
 
   private httpGet<T>(urlStr: string): Promise<T> {

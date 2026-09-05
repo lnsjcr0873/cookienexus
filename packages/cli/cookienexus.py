@@ -54,6 +54,9 @@ def cmd_pull(args):
     if args.format == "header":
         print("[+] HTTP Cookie Header:")
         print("; ".join(f"{c['name']}={c['value']}" for c in cookies))
+    elif args.format == "curl":
+        print("[+] cURL Command:")
+        print(client.get_curl_command(domain=args.domain, url=args.url or "https://example.com"))
     elif args.format == "playwright":
         pw = client.get_playwright_storage_state(args.domain)
         print(json.dumps(pw, indent=2))
@@ -70,18 +73,76 @@ def cmd_pull(args):
     else:
         print(json.dumps(cookies, indent=2))
 
+def cmd_vaults(args):
+    client = CookieNexusClient(hub_url=args.hub, vault_id="", password="", api_token=args.token)
+    if args.action == "list":
+        vaults = client.list_vaults()
+        print(f"[*] Active Vaults on Hub ({len(vaults)}):")
+        for v in vaults:
+            print(f"  📦 {v}")
+    elif args.action == "delete":
+        if not args.vault:
+            print("[-] Error: --vault is required for delete action.")
+            return
+        success = client.delete_vault(vault_id=args.vault)
+        if success:
+            print(f"[+] Successfully deleted vault '{args.vault}'.")
+        else:
+            print(f"[-] Vault '{args.vault}' not found.")
+
 def cmd_probe(args):
-    url = f"{args.hub.rstrip('/')}/api/v1/probes"
-    try:
-        with urllib.request.urlopen(url, timeout=5) as resp:
-            probes = json.loads(resp.read().decode('utf-8'))
-        print(f"[*] Active Session Probes ({len(probes)}):")
-        for p in probes:
-            status = p.get('lastStatus', 'UNKNOWN')
-            status_icon = "🟢" if status == "HEALTHY" else "🔴" if status == "EXPIRED" else "🟡"
-            print(f"  {status_icon} [{p['probeId']}] Domain: {p['domain']} | Status: {status} | Latency: {p.get('lastLatencyMs', 0)}ms")
-    except Exception as e:
-        print(f"[-] Failed to fetch probes from Hub: {e}")
+    client = CookieNexusClient(hub_url=args.hub, vault_id="", password="", api_token=args.token)
+    if args.action == "list":
+        try:
+            probes = client.list_probes()
+            print(f"[*] Active Session Probes ({len(probes)}):")
+            for p in probes:
+                status = p.get('lastStatus', 'UNKNOWN')
+                status_icon = "🟢" if status == "HEALTHY" else "🔴" if status == "EXPIRED" else "🟡"
+                print(f"  {status_icon} [{p['probeId']}] Domain: {p['domain']} | Status: {status} | Latency: {p.get('lastLatencyMs', 0)}ms")
+        except Exception as e:
+            print(f"[-] Failed to fetch probes from Hub: {e}")
+    elif args.action == "register":
+        if not args.probe_id or not args.domain or not args.url:
+            print("[-] Error: --probe-id, --domain, and --url are required.")
+            return
+        probe_def = {
+            "probeId": args.probe_id,
+            "vaultId": args.vault or "default_vault",
+            "domain": args.domain,
+            "request": {
+                "url": args.url,
+                "method": args.method or "GET",
+                "timeoutMs": args.timeout or 5000,
+            },
+            "assertion": {
+                "expectedStatus": args.status,
+                "mustContain": args.must_contain.split(",") if args.must_contain else None,
+                "denyKeywords": args.deny_keywords.split(",") if args.deny_keywords else None,
+            },
+            "scheduleMs": args.schedule_ms or 60000,
+        }
+        res = client.register_probe(probe_def)
+        print(f"[+] Successfully registered probe '{args.probe_id}' for domain '{args.domain}'.")
+    elif args.action == "delete":
+        if not args.probe_id:
+            print("[-] Error: --probe-id is required.")
+            return
+        success = client.delete_probe(args.probe_id)
+        if success:
+            print(f"[+] Successfully deleted probe '{args.probe_id}'.")
+        else:
+            print(f"[-] Probe '{args.probe_id}' not found.")
+    elif args.action == "check":
+        if not args.probe_id:
+            print("[-] Error: --probe-id is required.")
+            return
+        res = client.check_probe(args.probe_id)
+        status = res.get('lastStatus', 'UNKNOWN')
+        status_icon = "🟢" if status == "HEALTHY" else "🔴" if status == "EXPIRED" else "🟡"
+        print(f"[+] Probe Check Result: {status_icon} Status: {status} (Latency: {res.get('lastLatencyMs', 0)}ms)")
+        if res.get('lastErrorMessage'):
+            print(f"    Reason: {res['lastErrorMessage']}")
 
 def main():
     parser = argparse.ArgumentParser(prog="cookienexus", description="CookieNexus Enterprise CLI")
@@ -110,12 +171,33 @@ def main():
     p_pull.add_argument("--password", required=True, help="E2EE Master Password")
     p_pull.add_argument("--token", help="Optional RBAC Bearer Token")
     p_pull.add_argument("--domain", help="Filter domain")
-    p_pull.add_argument("--format", choices=["json", "header", "playwright", "netscape"], default="json")
+    p_pull.add_argument("--url", default="https://example.com", help="Target URL for cURL export")
+    p_pull.add_argument("--format", choices=["json", "header", "playwright", "netscape", "curl"], default="json")
     p_pull.set_defaults(func=cmd_pull)
 
+    # vaults
+    p_vaults = subparsers.add_parser("vaults", help="Manage encrypted vaults on Hub")
+    p_vaults.add_argument("action", choices=["list", "delete"], help="Vault action")
+    p_vaults.add_argument("--hub", default="http://localhost:8765", help="CookieNexus Hub URL")
+    p_vaults.add_argument("--vault", help="Target Vault ID")
+    p_vaults.add_argument("--token", help="Optional RBAC Bearer Token")
+    p_vaults.set_defaults(func=cmd_vaults)
+
     # probe
-    p_probe = subparsers.add_parser("probe", help="Query session probe health status")
+    p_probe = subparsers.add_parser("probe", help="Query and manage session health probes")
+    p_probe.add_argument("action", nargs="?", choices=["list", "register", "delete", "check"], default="list", help="Probe action")
     p_probe.add_argument("--hub", default="http://localhost:8765", help="CookieNexus Hub URL")
+    p_probe.add_argument("--token", help="Optional RBAC Bearer Token")
+    p_probe.add_argument("--probe-id", help="Probe Identifier")
+    p_probe.add_argument("--vault", help="Vault ID for probe")
+    p_probe.add_argument("--domain", help="Target domain")
+    p_probe.add_argument("--url", help="HTTP Probe Target URL")
+    p_probe.add_argument("--method", default="GET", help="HTTP method")
+    p_probe.add_argument("--status", type=int, help="Expected HTTP Status Code (e.g. 200)")
+    p_probe.add_argument("--must-contain", help="Comma-separated tokens that response must contain")
+    p_probe.add_argument("--deny-keywords", help="Comma-separated tokens indicating login/expired")
+    p_probe.add_argument("--schedule-ms", type=int, help="Check interval in milliseconds")
+    p_probe.add_argument("--timeout", type=int, help="Probe request timeout in milliseconds")
     p_probe.set_defaults(func=cmd_probe)
 
     args = parser.parse_args()

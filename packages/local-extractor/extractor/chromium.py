@@ -175,7 +175,7 @@ class ChromiumExtractor:
                     "secure": bool(secure),
                     "httpOnly": bool(httponly),
                     "sameSite": same_site_str,
-                    "expirationDate": expires_utc / 1000000 - 11644473600 if expires_utc else None
+                    "expirationDate": (expires_utc / 1000000 - 11644473600) if (expires_utc and expires_utc > 11644473600000000) else None
                 })
             return results
         finally:

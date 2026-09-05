@@ -89,6 +89,14 @@ class CookieNexusClient:
             })
         return {"cookies": playwright_cookies, "origins": []}
 
+    def get_curl_command(self, domain: Optional[str] = None, url: str = "https://example.com", vault_id: Optional[str] = None) -> str:
+        """
+        Generates cURL command string with cookie headers.
+        """
+        cookies = self.get_cookies(domain, vault_id=vault_id)
+        header_str = "; ".join(f"{c['name']}={c['value']}" for c in cookies)
+        return f'curl -b "{header_str}" "{url}"'
+
     def list_vaults(self) -> List[str]:
         """
         Lists all active vault IDs on the central Hub.
@@ -124,3 +132,86 @@ class CookieNexusClient:
             if e.code == 404:
                 return False
             raise RuntimeError(f"Failed to delete vault: HTTP {e.code}")
+
+    def list_probes(self) -> List[Dict[str, Any]]:
+        """
+        Lists all registered session health probes on the central Hub.
+        """
+        url = f"{self.hub_url}/api/v1/probes"
+        req = urllib.request.Request(url)
+        req.add_header('Accept', 'application/json')
+        if self.api_token:
+            req.add_header('Authorization', f'Bearer {self.api_token}')
+
+        try:
+            with urllib.request.urlopen(req, timeout=10) as response:
+                return json.loads(response.read().decode('utf-8'))
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return []
+            raise RuntimeError(f"Failed to list probes: HTTP {e.code}")
+
+    def register_probe(self, probe: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Registers or updates a session health probe on the central Hub.
+        """
+        url = f"{self.hub_url}/api/v1/probes"
+        raw_data = json.dumps(probe).encode('utf-8')
+        req = urllib.request.Request(url, data=raw_data, method='POST')
+        req.add_header('Content-Type', 'application/json')
+        if self.api_token:
+            req.add_header('Authorization', f'Bearer {self.api_token}')
+
+        with urllib.request.urlopen(req, timeout=10) as response:
+            if response.status in (200, 201):
+                return json.loads(response.read().decode('utf-8'))
+            raise RuntimeError(f"Failed to register probe: HTTP {response.status}")
+
+    def delete_probe(self, probe_id: str) -> bool:
+        """
+        Deletes a session health probe from the central Hub.
+        """
+        url = f"{self.hub_url}/api/v1/probes/{urllib.parse.quote(probe_id)}"
+        req = urllib.request.Request(url, method='DELETE')
+        if self.api_token:
+            req.add_header('Authorization', f'Bearer {self.api_token}')
+
+        try:
+            with urllib.request.urlopen(req, timeout=10) as response:
+                return response.status in (200, 204)
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return False
+            raise RuntimeError(f"Failed to delete probe: HTTP {e.code}")
+
+    def check_probe(self, probe_id: str) -> Dict[str, Any]:
+        """
+        Triggers an immediate execution check for a registered session probe.
+        """
+        url = f"{self.hub_url}/api/v1/probes/check/{urllib.parse.quote(probe_id)}"
+        req = urllib.request.Request(url, data=b"{}", method='POST')
+        req.add_header('Content-Type', 'application/json')
+        if self.api_token:
+            req.add_header('Authorization', f'Bearer {self.api_token}')
+
+        with urllib.request.urlopen(req, timeout=10) as response:
+            if response.status == 200:
+                return json.loads(response.read().decode('utf-8'))
+            raise RuntimeError(f"Failed to execute probe check: HTTP {response.status}")
+
+    def get_audit_logs(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """
+        Fetches recent audit trail logs from the central Hub.
+        """
+        url = f"{self.hub_url}/api/v1/audit/logs"
+        req = urllib.request.Request(url)
+        req.add_header('Accept', 'application/json')
+        if self.api_token:
+            req.add_header('Authorization', f'Bearer {self.api_token}')
+
+        try:
+            with urllib.request.urlopen(req, timeout=10) as response:
+                logs = json.loads(response.read().decode('utf-8'))
+                return logs[:limit] if isinstance(logs, list) else []
+        except urllib.error.HTTPError as e:
+            raise RuntimeError(f"Failed to fetch audit logs: HTTP {e.code}")

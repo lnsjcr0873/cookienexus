@@ -142,14 +142,17 @@ export class CookieCRDT {
     const cookies: CookieRecord[] = [];
     for (const entry of this.state.values()) {
       if (!entry.tombstone && !entry.value.isDeleted) {
-        cookies.push(entry.value);
+        cookies.push({ ...entry.value });
       }
     }
     return cookies;
   }
 
   public getAllEntries(): CRDTCookieEntry[] {
-    return Array.from(this.state.values());
+    return Array.from(this.state.values()).map(e => ({
+      ...e,
+      value: { ...e.value }
+    }));
   }
 
   public pruneTombstones(ttlMs: number = 30 * 24 * 3600 * 1000): number {

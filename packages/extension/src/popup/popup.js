@@ -123,23 +123,59 @@ async function updateCookie(c) {
   const protocol = c.secure ? 'https://' : 'http://';
   const rawDomain = c.domain || (activeTabUrl ? new URL(activeTabUrl).hostname : 'localhost');
   const cleanDomain = rawDomain.startsWith('.') ? rawDomain.substring(1) : rawDomain;
-  const url = `${protocol}${cleanDomain}${c.path || '/'}`;
+  const safePath = (c.path && c.path.startsWith('/')) ? c.path : '/' + (c.path || '');
+
+  let sameSite = undefined;
+  if (c.sameSite) {
+    const s = String(c.sameSite).toLowerCase();
+    if (s === 'none' || s === 'no_restriction') {
+      sameSite = 'no_restriction';
+    } else if (s === 'strict') {
+      sameSite = 'strict';
+    } else if (s === 'lax') {
+      sameSite = 'lax';
+    } else {
+      sameSite = 'unspecified';
+    }
+  }
+
+  let isSecure = !!c.secure;
+  if (sameSite === 'no_restriction') {
+    isSecure = true;
+  }
+
+  const url = `${isSecure ? 'https://' : 'http://'}${cleanDomain}${safePath}`;
   
   const setDetails = {
     url,
     name: c.name,
-    value: c.value,
-    path: c.path || '/',
-    secure: !!c.secure,
+    value: c.value || '',
+    path: safePath,
+    secure: isSecure,
     httpOnly: !!c.httpOnly,
-    expirationDate: c.expirationDate,
   };
+
+  if (sameSite) {
+    setDetails.sameSite = sameSite;
+  }
+
+  if (c.expirationDate && Number(c.expirationDate) > 0 && !isNaN(Number(c.expirationDate))) {
+    setDetails.expirationDate = Number(c.expirationDate);
+  }
 
   if (rawDomain.startsWith('.')) {
     setDetails.domain = rawDomain;
   }
+  if (c.storeId) {
+    setDetails.storeId = c.storeId;
+  }
 
-  await chrome.cookies.set(setDetails);
+  try {
+    await chrome.cookies.set(setDetails);
+  } catch (err) {
+    console.error('Failed to set cookie:', err);
+  }
+
   if (activeTabUrl) {
     await loadCookies(new URL(activeTabUrl).hostname);
   }
@@ -149,8 +185,15 @@ async function deleteCookie(c) {
   const protocol = c.secure ? 'https://' : 'http://';
   const rawDomain = c.domain || (activeTabUrl ? new URL(activeTabUrl).hostname : 'localhost');
   const cleanDomain = rawDomain.startsWith('.') ? rawDomain.substring(1) : rawDomain;
-  const url = `${protocol}${cleanDomain}${c.path || '/'}`;
-  await chrome.cookies.remove({ url, name: c.name });
+  const safePath = (c.path && c.path.startsWith('/')) ? c.path : '/' + (c.path || '');
+  const url = `${protocol}${cleanDomain}${safePath}`;
+  const details = { url, name: c.name };
+  if (c.storeId) details.storeId = c.storeId;
+  try {
+    await chrome.cookies.remove(details);
+  } catch (err) {
+    console.error('Failed to remove cookie:', err);
+  }
 }
 
 // Search / Filter

@@ -91,8 +91,8 @@ export class SyncWebSocketServer {
 
       case 'SYNC_PUSH': {
         const envelope: EncryptedVaultEnvelope = message.envelope;
-        if (!envelope || !envelope.vaultId) {
-          throw new Error('Invalid vault envelope');
+        if (!envelope || !envelope.vaultId || !envelope.ciphertext) {
+          throw new Error('Invalid vault envelope: missing vaultId or ciphertext');
         }
 
         // Save encrypted envelope into storage (Zero-Knowledge store)

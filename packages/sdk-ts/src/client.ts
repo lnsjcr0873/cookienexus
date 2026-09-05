@@ -167,7 +167,7 @@ export class CookieNexusClient {
       const headers: Record<string, string> = { 'Accept': 'application/json' };
       if (this.options.apiToken) headers['Authorization'] = `Bearer ${this.options.apiToken}`;
 
-      client.get(u, { headers }, (res) => {
+      const req = client.get(u, { headers, timeout: 10000 }, (res) => {
         let body = '';
         res.on('data', chunk => { body += chunk; });
         res.on('end', () => {
@@ -181,7 +181,12 @@ export class CookieNexusClient {
             reject(new Error(`HTTP ${res.statusCode}: ${body}`));
           }
         });
-      }).on('error', reject);
+      });
+      req.on('error', reject);
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('Request timed out'));
+      });
     });
   }
 
@@ -196,7 +201,7 @@ export class CookieNexusClient {
       };
       if (this.options.apiToken) headers['Authorization'] = `Bearer ${this.options.apiToken}`;
 
-      const req = client.request(u, { method: 'POST', headers }, (res) => {
+      const req = client.request(u, { method: 'POST', headers, timeout: 10000 }, (res) => {
         let body = '';
         res.on('data', chunk => { body += chunk; });
         res.on('end', () => {
@@ -208,6 +213,10 @@ export class CookieNexusClient {
         });
       });
       req.on('error', reject);
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('Request timed out'));
+      });
       req.write(payload);
       req.end();
     });
@@ -220,7 +229,7 @@ export class CookieNexusClient {
       const headers: Record<string, string> = { 'Accept': 'application/json' };
       if (this.options.apiToken) headers['Authorization'] = `Bearer ${this.options.apiToken}`;
 
-      const req = client.request(u, { method: 'DELETE', headers }, (res) => {
+      const req = client.request(u, { method: 'DELETE', headers, timeout: 10000 }, (res) => {
         if (res.statusCode === 200 || res.statusCode === 204) {
           resolve(true);
         } else if (res.statusCode === 404) {
@@ -230,6 +239,10 @@ export class CookieNexusClient {
         }
       });
       req.on('error', reject);
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('Request timed out'));
+      });
       req.end();
     });
   }

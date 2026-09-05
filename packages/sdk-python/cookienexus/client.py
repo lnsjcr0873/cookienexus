@@ -31,6 +31,9 @@ class CookieNexusClient:
                 return []
             raise RuntimeError(f"Failed to fetch vault: HTTP {e.code}")
 
+        if not payload or not isinstance(payload, dict) or not payload.get('ciphertext'):
+            return []
+
         all_cookies = CryptoEngine.decrypt_vault(payload, self.password)
         if not domain_filter:
             return all_cookies

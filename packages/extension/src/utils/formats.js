@@ -233,9 +233,22 @@ export class CookieFormats {
     if (text.startsWith('[') || text.startsWith('{')) {
       try {
         const parsed = JSON.parse(text);
-        if (Array.isArray(parsed)) return parsed;
-        if (parsed.cookies && Array.isArray(parsed.cookies)) return parsed.cookies;
-        if (parsed.cookie) return [parsed.cookie];
+        let list = null;
+        if (Array.isArray(parsed)) list = parsed;
+        else if (parsed.cookies && Array.isArray(parsed.cookies)) list = parsed.cookies;
+        else if (parsed.cookie) list = [parsed.cookie];
+
+        if (list) {
+          return list.map(c => {
+            const exp = c.expirationDate !== undefined ? c.expirationDate : (c.expires && c.expires > 0 ? c.expires : undefined);
+            return {
+              ...c,
+              expirationDate: exp,
+              path: c.path || '/',
+              domain: c.domain || defaultDomain,
+            };
+          });
+        }
       } catch (e) {}
     }
 
